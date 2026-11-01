@@ -45,10 +45,10 @@
 .lstabs{display:flex;gap:6px;padding:4px 18px 10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.lstabs::-webkit-scrollbar{display:none}
 .lstabs button{flex:none;background:#232c3d;border:1px solid #394559;border-radius:99px;color:#c7d3e6;padding:6px 14px;font-size:14px;cursor:pointer;min-height:36px}
 .lstabs button.on{background:#2a7de1;border-color:#2a7de1;color:#fff}.lstabs button i{font-style:normal;opacity:.75;font-size:12px;margin-left:4px}
-.lsgrid{padding:2px 18px 16px;overflow:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.lsgrid{padding:2px 18px 16px;overflow:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-rows:max-content;align-content:start;gap:10px}
 .lstile{position:relative;text-align:left;background:#1c2536;border:1px solid #33425a;border-radius:10px;color:#e6edf7;padding:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px}
 .lstile:hover,.lstile:focus-visible{border-color:#3fd2ff;box-shadow:0 0 0 2px rgba(63,210,255,.25);outline:0}
-.lstile b{font-size:14px;text-align:center}.lstile .im{width:100%;aspect-ratio:5/7;display:flex;align-items:center;justify-content:center}.lstile .im img{max-width:100%;max-height:100%;border-radius:6px;display:block}
+.lstile b{font-size:14px;text-align:center}.lstile{min-width:0;overflow:hidden}.lstile .im{position:relative;width:100%;aspect-ratio:5/7;overflow:hidden;flex:none}.lstile .im img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:6px;display:block}   /* 卡圖不撐開格子 (原本圖原尺寸會跑出框外、蓋住名字) */
 .lstile.ok{border-color:#2f8f5a}.lstile.ok b::after{content:"✓";margin-left:5px;color:#4cd488;font-weight:700}
 #lsbar{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:600;background:#16324a;color:#fff;border:1px solid #3fd2ff;border-radius:10px;padding:8px 12px;width:min(720px,calc(100vw - 16px));box-sizing:border-box;box-shadow:0 4px 18px rgba(0,0,0,.5);font-size:14px}
 #lsbar.ok{background:#14382a;border-color:#4cd488}
