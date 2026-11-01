@@ -1463,7 +1463,7 @@ class Manager:
         if L is None or st["step"] >= len(L["steps"]):
             return
         text, rx = L["steps"][st["step"]][:2]
-        m = re.search(r"P0\([^)]*\)[^\n]*使用 ?([^\s]+)", msg)
+        m = re.search(r"^\s*(?:\[[^\]]*\]\s*)?P0\([^)]*\)[^\n]*使用 ?([^\s]+)", msg)   # 一定是 P0 自己出牌 (行首): 「P1 對 P0 使用 殺」是別人出的,不能算成玩家做錯
         if st.get("armed"):   # 武將關: 技能已發動,等效果結算完 (換下一回合) 才算過關
             if re.match(r"--- 第\d+輪 ", msg):
                 self.lesson_resolved()
@@ -2187,6 +2187,8 @@ class Handler(BaseHTTPRequestHandler):
                 if PROFILES.dev(data.get("tok")) != "dev":
                     return self._send(200, {"ok": False, "error": "沒有權限"})
                 return self._send(200, devconsole.api(globals(), data.get("tok"), data))
+            if path == "/api/delete_account":   # 玩家自己刪除帳號 (要輸入密碼)
+                return self._send(200, devconsole.delete_self(globals(), data.get("tok"), str(data.get("pw") or "")))
             if path == "/api/prestige":
                 if is_playing(data.get("tok")):
                     return self._send(200, {"ok": False, "error": "對局進行中不能轉生,請先離開或等這場結束"})

@@ -748,7 +748,7 @@ img.av{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:
   <a class="dc" href="https://discord.gg/e6f24U3T68" target="_blank" rel="noopener noreferrer" title="Discord" aria-label="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>
   <h2>進化三國 · 大廳<span id="lobbycount"></span></h2>
   <div id="lobbytools" role="group" aria-label="快捷功能"></div>
-  <div class="rnew"><input id="rname" type="text" maxlength="20" placeholder="房間名稱 (例如: 阿明的房間)"><input id="rpw" type="password" maxlength="20" placeholder="房間密碼 (可不設)" autocomplete="new-password" style="max-width:150px"><select id="rcap" title="房間人數上限 (含觀戰的人)"><option value="0">人數不限</option><option value="2">上限 2 人</option><option value="3">上限 3 人</option><option value="4">上限 4 人</option><option value="5">上限 5 人</option><option value="6">上限 6 人</option><option value="7">上限 7 人</option><option value="8">上限 8 人</option><option value="9">上限 9 人</option><option value="10">上限 10 人</option></select><button id="rcreate" class="primary">創建房間</button></div>
+  <div class="rnew"><input id="rname" type="text" maxlength="20" placeholder="房間名稱"><input id="rpw" type="password" maxlength="20" placeholder="房間密碼 (可不設)" autocomplete="new-password" style="max-width:150px"><select id="rcap" title="房間人數上限 (含觀戰的人)"><option value="0">人數不限</option><option value="2">上限 2 人</option><option value="3">上限 3 人</option><option value="4">上限 4 人</option><option value="5">上限 5 人</option><option value="6">上限 6 人</option><option value="7">上限 7 人</option><option value="8">上限 8 人</option><option value="9">上限 9 人</option><option value="10">上限 10 人</option></select><button id="rcreate" class="primary">創建房間</button></div>
   <div class="rnew"><button id="rsolo" class="primary" title="自己一個人和電腦對打 (房間不公開)">🤖 單人模式 (和電腦對打)</button></div>
   <input id="rsearch" type="search" maxlength="20" placeholder="搜尋房間名稱 / 房主" aria-label="搜尋房間名稱 / 房主" style="width:100%;box-sizing:border-box;margin:8px 0">
   <div id="rlist"></div>
@@ -2788,9 +2788,16 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
 #devgui .it{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid #232830}#devgui .it span.n{flex:1}#devgui .st{font-size:11px;padding:0 6px;border-radius:3px}
 #devgui .g{background:#1f6f45}#devgui .rv{background:#8a2a2a}#devgui .nat{background:#4a525d}#devgui .no{background:#2a2d32}
 #devgui pre{margin:0;padding:8px 10px;overflow:auto;white-space:pre-wrap;word-break:break-all;flex:1;font:13px/1.5 Consolas,monospace}
-#devgui .msg{color:#ffd166;min-height:18px}`;
+#devgui .msg{color:#ffd166;min-height:18px}#devgui .dback{display:none}
+@media (max-width:820px){#devgui{padding-top:0}#devgui .dg{width:100vw;height:100vh;height:100dvh;border-radius:0;border:0}
+#devgui .db{flex-direction:column}#devgui .dl{width:auto;border-right:0;padding:8px 10px}#devgui .dlist{max-height:none}
+#devgui .dg.hascur .dl{display:none}#devgui .dback{display:inline-block}#devgui .dr{padding:8px 10px}
+#devgui input,#devgui select{font-size:16px}#devgui button{padding:8px 12px;min-height:38px}#devgui .pr{padding:10px 8px}#devgui .it{flex-wrap:wrap}
+#devbtn{bottom:84px!important;right:12px!important;opacity:.9!important}}`;
+  let cssOn = false;
+  const ensureCss = () => { if (!cssOn) { cssOn = true; document.head.append(E("style", { text: css })); } };   // 🛠 按鈕的手機位置也靠這份樣式,所以按鈕出現前就要先放
   function build() {
-    document.head.append(E("style", { text: css }));
+    ensureCss();
     root = E("div", { id: "devgui", onclick: e => { if (e.target === root) toggle(); } });
     document.body.append(root);
   }
@@ -2799,7 +2806,7 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
   function shell(body) {
     root.textContent = "";
     const tabs = [["p", "玩家"], ["r", "房間"]].map(([k, n]) => E("button", { class: tab === k ? "on" : "", text: n, onclick: () => { tab = k; draw(); } }));
-    root.append(E("div", { class: "dg" }, E("div", { class: "dh" }, E("b", { text: "🛠 開發者管理" }), E("span", { class: "msg" }), tabs, E("button", { text: "✕", onclick: toggle })), body));
+    root.append(E("div", { class: "dg" + (tab === "p" && cur ? " hascur" : "") }, E("div", { class: "dh" }, E("b", { text: "🛠 開發者管理" }), E("span", { class: "msg" }), tabs, E("button", { text: "✕", onclick: toggle })), body));
   }
   async function drawPlayers() {
     const lst = E("div", { class: "dlist" }), side = E("div", { class: "dl" }), det = E("div", { class: "dr" });
@@ -2834,7 +2841,7 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
   }
   function drawDetail(det) {
     const c = cur;
-    put(det, E("div", { class: "row" }, E("b", { style: "font-size:17px", text: c.user }), c.tag ? E("span", { class: "tag" + (c.tag === "tester" ? " t" : ""), text: c.tag === "tester" ? "測試者" : "開發者" }) : "", E("span", { style: "color:#8b95a1", text: "UID " + c.uid })),
+    put(det, E("div", { class: "row" }, E("button", { class: "dback", text: "← 玩家列表", onclick: () => { cur = null; sel = null; draw(); } }), E("b", { style: "font-size:17px", text: c.user }), c.tag ? E("span", { class: "tag" + (c.tag === "tester" ? " t" : ""), text: c.tag === "tester" ? "測試者" : "開發者" }) : "", E("span", { style: "color:#8b95a1", text: "UID " + c.uid })),
       E("div", { class: "row" }, [["info", "資料"], ["fr", "好友"], ["ach", "成就"], ["cos", "外觀"]].map(([k, n]) => E("button", { class: sub === k ? "on" : "", text: n, onclick: () => { sub = k; draw(); } }))));
     if (sub === "info") {
       const ci = E("input", { placeholder: "輸入「" + c.user + "」確認" });
@@ -2889,7 +2896,7 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
   window.SGS_DEVCON = toggle;
   setInterval(() => {   // 開發者登入後,右下角出現 🛠 按鈕 (有些輸入法會吃掉 Ctrl+`)
     let b = document.getElementById("devbtn");
-    if (isDev() && !b) { b = E("button", { id: "devbtn", title: "開發者管理 (Ctrl+`)", text: "🛠", onclick: toggle, style: "position:fixed;right:10px;bottom:10px;z-index:9980;box-sizing:border-box;width:38px;height:38px;min-width:0;min-height:0;padding:0;margin:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid #c3ccd8;background:#14161a;color:#fff;font-size:18px;cursor:pointer;opacity:.75" }); document.body.append(b); }
+    if (isDev() && !b) { ensureCss(); b = E("button", { id: "devbtn", title: "開發者管理 (Ctrl+`)", text: "🛠", onclick: toggle, style: "position:fixed;right:10px;bottom:10px;z-index:9980;box-sizing:border-box;width:38px;height:38px;min-width:0;min-height:0;padding:0;margin:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid #c3ccd8;background:#14161a;color:#fff;font-size:18px;cursor:pointer;opacity:.75" }); document.body.append(b); }
     else if (!isDev() && b) b.remove();
   }, 1500);
 })();

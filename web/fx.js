@@ -211,17 +211,17 @@
       const fv = el("span", { className: "sv", textContent: Math.round(fs * 100) + "%" });
       const fsl = el("input", { type: "range", min: 80, max: 150, step: 5, value: Math.round(fs * 100) }); fsl.oninput = () => { SGS_FX.setFs(fsl.value / 100); fv.textContent = fsl.value + "%"; };
       const ttsRow = window.speechSynthesis ? row("朗讀", cb(tts, v => SGS_FX.setTts(v)), el("span", { className: "meta", textContent: "唸出對局紀錄" })) : row("朗讀", el("span", { className: "meta", textContent: "這個瀏覽器不支援朗讀" }));
-      const aboutRow = () => {
-        const v = el("span", { className: "meta", textContent: "…" });
+      const aboutRow = () => {   // 版本列: 版本號 / GitHub / 更新日誌 排同一行;更新日誌按鈕開視窗,視窗裡有選版本的下拉選單
+        const v = el("span", { className: "meta", textContent: "…", style: "display:flex;align-items:center;gap:6px;flex:1;min-width:0" });   // flex:1 + 按鈕靠右: 跟下一列 (登出 / 刪除帳號) 的右邊對齊
         const box = el("div", { className: "setrow" }, el("span", { className: "sl", textContent: "版本" }), v);
         fetch("/api/about").then(r => r.json()).then(a => {
           v.textContent = "v" + a.version + " ";
-          const gh = el("button", { textContent: "GitHub", title: a.repo, style: "margin:0 8px" });
+          const gh = el("button", { textContent: "GitHub", title: a.repo, style: "margin:0 0 0 auto;padding:4px 8px;font-size:13px" });
           gh.onclick = () => window.open(a.repo, "_blank", "noopener");
           const mdBox = md => {   // 更新日誌 (Markdown): 只處理 # / ## 標題與 - 清單,全部用 textContent,不吃 HTML;上方選單選要看哪個版本
-            const wrap = el("div", {}), body = el("div", { style: "max-height:56vh;overflow:auto;line-height:1.55" });
+            const wrap = el("div", {}), body = el("div", { style: "line-height:1.55" });   // 不自己捲動: 外面的視窗已經會捲,內層再捲就會有兩條捲軸
             if (!md) { body.textContent = "(沒有更新日誌)"; wrap.append(body); return wrap; }
-            const lines = md.split(/\r?\n/), secs = [];   // secs: [{name: "v1.7.58", lines: [...]}]
+            const lines = md.split(/\r?\n/), secs = [];   // secs: [{name: "v1.10.0", lines: [...]}]
             lines.forEach(raw => { const m = /^##\s+(.*)$/.exec(raw.trimEnd()); if (m) secs.push({ name: m[1].trim(), lines: [raw] }); else if (secs.length) secs[secs.length - 1].lines.push(raw); });
             const draw = ls => {
               body.textContent = ""; let ul = null;
@@ -235,31 +235,39 @@
               body.scrollTop = 0;
             };
             if (secs.length < 2) { draw(lines); wrap.append(body); return wrap; }
-            const sel = el("select", { style: "margin:0 0 8px;max-width:100%" }, el("option", { value: "-1", textContent: "全部版本" }), ...secs.map((x, k) => el("option", { value: String(k), textContent: x.name })));
-            sel.value = "0";
-            sel.onchange = () => draw(+sel.value < 0 ? lines : secs[+sel.value].lines);
-            draw(secs[0].lines);
+            const sel = el("select", { style: "margin:0 0 8px;max-width:100%" }, ...secs.map((x, k) => el("option", { value: String(k), textContent: x.name })));
+            const cur = secs.findIndex(x => x.name === "v" + a.version); sel.value = String(cur < 0 ? 0 : cur);   // 預設顯示目前版本
+            sel.onchange = () => draw(secs[+sel.value].lines);
+            draw(secs[+sel.value].lines);
             wrap.append(sel, body);
             return wrap;
           };
-          const lg = el("button", { textContent: "更新日誌" });
+          const lg = el("button", { textContent: "更新日誌", style: "margin:0;padding:4px 8px;font-size:13px" });
           lg.onclick = () => {
             const d2 = el("div", { className: "dlg", style: "max-width:560px" },
-              el("div", { className: "dh" }, el("div", {}, el("h3", { textContent: "更新日誌 · v" + a.version })), el("button", { className: "x", textContent: "✕", onclick: () => m2.remove() })),
+              el("div", { className: "dh" }, el("div", {}, el("h3", { textContent: "更新日誌" })), el("button", { className: "x", textContent: "✕", onclick: () => m2.remove() })),
               el("div", { className: "dbody" }, mdBox(a.changelog)));
-            const m2 = el("div", { className: "modal", style: "z-index:7700" }, d2);; m2.onclick = e => { if (e.target === m2) m2.remove(); };   // z-index 比設定視窗 (7600) 高,才會蓋在它前面
+            const m2 = el("div", { className: "modal", style: "z-index:7700" }, d2); m2.onclick = e => { if (e.target === m2) m2.remove(); };   // z-index 比設定視窗 (7600) 高,才會蓋在它前面
             document.body.append(m2);
           };
           v.append(gh, lg);
         }).catch(() => { v.textContent = ""; });
         return box;
       };
-      const acctRow = () => {   // 登出: 跟設定裡其他按鈕 (GitHub / 更新日誌) 同樣大小,只有字是紅色
-        let u = ""; try { u = S.user || ""; } catch (e) {}
-        if (!u) return "";
-        const lo = el("button", { textContent: "登出", style: "color:#ff5d5d" });
+      const acctRow = () => {   // UID / 登出 / 刪除帳號: 跟設定裡其他按鈕同樣大小,只有字是紅色
+        let uid = ""; try { uid = (S.prof && S.prof.uuid) || ""; if (!S.user) return ""; } catch (e) { return ""; }
+        const red = "color:#ff5d5d;margin:0;padding:4px 10px;font-size:13px;white-space:nowrap";
+        const lo = el("button", { textContent: "登出", style: red });
         lo.onclick = () => { try { logout(); } catch (e) { location.reload(); } };
-        return el("div", { className: "setrow" }, el("span", { className: "sl", textContent: "帳號" }), el("span", { className: "meta", textContent: u + " " }), lo);
+        const del = el("button", { textContent: "刪除帳號", style: red });
+        del.onclick = async () => {
+          if (!confirm("刪除帳號是永久的:帳號、戰績、遊戲幣、外觀和好友都會消失,沒辦法復原。\n確定要刪除嗎?")) return;
+          const pw = prompt("請輸入密碼確認刪除:");
+          if (pw == null || pw === "") return;
+          let r = null; try { r = await (await fetch("/api/delete_account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tok: TOK, pw }) })).json(); } catch (e) {}
+          if (r && r.ok) { alert("帳號已刪除"); try { logout(); } catch (e) { location.reload(); } } else alert((r && r.error) || "刪除失敗");
+        };
+        return el("div", { className: "setrow", style: "flex-wrap:nowrap;gap:8px" }, el("span", { className: "sl", textContent: "UID", style: "width:auto" }), el("span", { className: "meta", textContent: String(uid || "—"), style: "flex:1;min-width:0;white-space:nowrap" }), lo, del);   // 登出和刪除帳號固定同一行 (手機也一樣)
       };
       const spTop = document.getElementById("speed");   // 平板寬度不夠時上方那條會藏起來,所以設定裡也放一份 (同一個值)
       const spv = el("span", { className: "sv", textContent: spTop ? (+spTop.value).toFixed(2) + "s" : "" });

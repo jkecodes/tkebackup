@@ -34,9 +34,31 @@ def _backup(ctx):
 
 
 def _delete(ctx, me_key, k, a, tok, p):
-    P, A, S = ctx["PROFILES"], ctx["ACCOUNTS"], ctx["SOCIAL"]
-    if P.dev(tok) == "dev" or k == me_key:
+    if ctx["PROFILES"].dev(tok) == "dev" or k == me_key:
         return "開發者帳號和你自己不能刪"
+    return _remove(ctx, k, a, tok)
+
+
+def delete_self(ctx, tok, pw):
+    """玩家自己刪除帳號 (設定視窗的「刪除帳號」): 要再輸入一次密碼;寫死在程式裡的開發者帳號不能刪 (不然別人註冊同名就拿到開發者)。"""
+    A, P = ctx["ACCOUNTS"], ctx["PROFILES"]
+    k = A.uuids.get(tok)
+    if not k:
+        return {"ok": False, "error": "請先登入"}
+    if k in P.DEVS:
+        return {"ok": False, "error": "開發者帳號不能自己刪除,請找其他開發者處理"}
+    if A._blocked("del:" + k):
+        return {"ok": False, "error": "嘗試次數太多,請 5 分鐘後再試"}
+    if not A._verify(A.d[k]["pw"], pw or ""):
+        A.fails.setdefault("del:" + k, []).append(time.time())
+        time.sleep(0.5)
+        return {"ok": False, "error": "密碼不正確"}
+    _remove(ctx, k, A.d[k], tok)
+    return {"ok": True}
+
+
+def _remove(ctx, k, a, tok):
+    P, A, S = ctx["PROFILES"], ctx["ACCOUNTS"], ctx["SOCIAL"]
     bak = _backup(ctx)
     try:
         pid = ctx["Profiles"]._pid(tok)
