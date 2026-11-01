@@ -53,9 +53,9 @@ def apply(g, L):
         p = g.players[i]
         if ps.get("maxhp"):
             p.maxhp = ps["maxhp"]
-        p.hp = ps.get("hp", p.maxhp)
         for s in ps.get("hand", []):
             p.hand.append(take(g, s))
+        p.hp = ps.get("hp", p.maxhp)   # 先發手牌再定體力 (孟獲的體力上限 = 手牌數 + 1)
         for s in ps.get("equip", []):
             c = take(g, s)
             p.equip[_slot(p, c)] = c

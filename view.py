@@ -123,6 +123,11 @@ def card_dict(c):
         d["real"] = real.name
         d["text"] = f"{d['bolt']}{c.color}{full_name(c.name)}(←{bolt_name(real.name)})"
         d["as_full"], d["real_full"] = bolt_name(c.name), bolt_name(real.name)
+        if c.kind == "armor":   # 手牌當作防具裝備 (張遼): 詳細資訊顯示防具本身,並註明原本是哪張牌
+            d["img"] = card_img(c.name, c.color)
+            d["desc"] = DESC.get(c.name, "") + (f"\n(張遼: 由 {c.color}{full_name(real.name)} 當作{c.name}裝備,離開裝備欄會變回原本的牌)"
+                                                  f"\n原本的牌 — {full_name(real.name)}: {DESC.get(real.name, '')}")
+            d["tp"], d["rng"] = type_label(c.name, c.kind), range_label(c.name)
     return d
 
 

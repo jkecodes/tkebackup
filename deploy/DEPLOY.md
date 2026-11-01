@@ -37,3 +37,12 @@ Networking → Virtual Cloud Networks → 你的 VCN → Subnet → Security Lis
 
 ## 備份
 玩家資料在主機的 `/var/lib/sgs` (帳號 accounts.json、戰績 profiles.json、頭像 avatars/)。
+
+## Discord 版本公告 (選用)
+伺服器啟動時,如果 `version.py` 的版本比上次公告的新,會把 `CHANGELOG.md` 那一版貼到 Discord (見 `announce.py`)。
+Webhook 網址不放在 repo,只放在主機上,用下面指令設定 (網址在你自己的終端機貼,不要貼到聊天或 commit):
+
+    ssh -i 你的私鑰檔 ubuntu@<Public IP> 'sudo mkdir -p /etc/sgs && sudo install -m 640 -o root -g sgs /dev/stdin /etc/sgs/discord_webhook'
+
+執行後貼上 Webhook 網址,按 Enter,再按 Ctrl+D (Windows 終端機是 Ctrl+Z 再 Enter)。
+第一次執行只記下目前版本、不補貼舊的;之後 `git pull` 到新版本並重啟服務就會自動公告。

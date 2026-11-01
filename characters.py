@@ -122,6 +122,7 @@ class Char:
     def on_equip_broken(self, g, p, owner, c): pass  # 別人的裝備被棄置
     def on_equipped(self, g, p, owner, c): pass  # 別人放置 (裝上) 了一件裝備
     def on_cards_discarded(self, g, p, c): pass     # 自己的牌被捨棄
+    def on_judged(self, g, p, c): pass              # 自己判定後 (袁術)
     def on_any_death(self, g, p, victim, killer): pass
     def on_other_draw(self, g, p, cur): pass        # 別人抽牌階段
     def on_card_used(self, g, p, user, card): pass  # 任何人使用牌 / 反調占
@@ -311,12 +312,16 @@ class 董卓(Char):
             p.skip_play_flag = True
             g.log(f"  {p.name} 也被樂 (不判定,下個出牌階段跳過)")
 
-    def on_flipped(self, g, p):   # 翻面時體力上限變 4 (體力超過就降到 4)
-        if p.maxhp > 4:
-            p.maxhp = 4
-            g.log(f"  {p.name}[董卓] 翻面,體力上限變成 4")
-            if p.hp > 4:
-                p.hp = 4
+    def on_flip_change(self, p, flipped):   # 翻面時體力上限變 4 (體力超過就降到 4),翻回正面又變回 8
+        if flipped:
+            p.maxhp -= 4   # 8 → 4 (主公的額外上限保留)
+            p.hp = min(p.hp, p.maxhp)
+            if p.g is not None:
+                p.g.log(f"  {p.name}[董卓] 翻面,體力上限變成 {p.maxhp}")
+        else:
+            p.maxhp += 4
+            if p.g is not None:
+                p.g.log(f"  {p.name}[董卓] 翻回正面,體力上限變回 {p.maxhp}")
 
 
 class 曹彰(Char):
@@ -644,25 +649,8 @@ class 袁紹(Char):
 class 張遼(Char):
     name, faction = "張遼", "魏"
 
-    def virtual_bagua(self, g, p):  # 需要閃時,棄一張紅色手牌當八卦陣
-        if any(c.name == "閃" for c in p.hand):
-            return False
-        reds = [c for c in p.hand if c.color == "紅"]
-        c = p.agent.respond(g, p, "張遼-八卦陣", reds, {}) if reds else None
-        if c:
-            g.discard_card(p, c)
-            g.log(f"  {p.name}[張遼] 棄 {c} 當八卦陣")
-            return True
-        return False
-
-    def virtual_renwang(self, g, p):  # 被黑殺指定時,棄一張黑色手牌當仁王盾
-        blacks = [c for c in p.hand if c.color == "黑"]
-        c = p.agent.respond(g, p, "張遼-仁王盾", blacks, {}) if blacks else None
-        if c:
-            g.discard_card(p, c)
-            g.log(f"  {p.name}[張遼] 棄 {c} 當仁王盾")
-            return True
-        return False
+    def views(self, g, p, c):   # 每張紅牌可裝備成八卦陣、黑牌裝備成仁王盾
+        return ["八卦陣"] if c.color == "紅" else ["仁王盾"] if c.color == "黑" else []
 
     def skill_options(self, g, p):  # 一張殺打場上所有其他人
         lim = p.char.sha_limit(g, p)
@@ -783,11 +771,11 @@ class 曹洪(Char):
 
     def on_any_damaged(self, g, p, tgt, n):
         if tgt is not p and g.trigger_ok(p, "曹洪-回血"):
-            g.link(f"{p.name}[曹洪] 有人受傷,回 1 點體力")
-            g.heal(p)
+            g.link(f"{p.name}[曹洪] 有人受到 {n} 點傷害,回 {n} 點體力")
+            g.heal(p, n)
 
     def on_turn_start(self, g, p):  # 判定: 黑 與另一人交換手牌;紅 判定區的牌全部無效
-        if not g.trigger_ok(p, "曹洪-判定"):
+        if not g.trigger_ok(p, "曹洪-判定") or not _may(g, p, "曹洪-判定"):
             return
         j = g.flip_judge(p)
         g.link(f"{p.name}[曹洪] 判定 {j}")
@@ -834,7 +822,7 @@ class 劉備(Char):
     def skill_options(self, g, p):
         opts = []
         tricks = [c for c in p.hand if g.is_trick(c)]
-        if tricks:
+        if tricks and self.ren < 10:   # 仁最多 10 個
             opts.append((SkillAct("劉備-棄錦囊得仁", lambda g, p, t: self._gain(g, p, tricks)), None))
         if self.ren > 0:
             opts += [(SkillAct("劉備-仁回血", self._heal), q) for q in g.alive_players() if q.hp < q.maxhp]
@@ -847,7 +835,7 @@ class 劉備(Char):
         g.log(f"  {p.name}[劉備] 棄 {c},獲得 1 個仁 (共 {self.ren})")
 
     def on_dying_help(self, g, p, tgt):   # 瀕死的人 (自己或其他玩家) 也可以用仁救,每次 -1 仁 +1 體力
-        while self.ren > 0 and p.alive and tgt.alive and tgt.hp <= 0 and p.agent.choose_skill(g, p, f"劉備-仁救 {tgt.name}"):
+        while g.cur is p and self.ren > 0 and p.alive and tgt.alive and tgt.hp <= 0 and p.agent.choose_skill(g, p, f"劉備-仁救 {tgt.name}"):
             self._heal(g, p, tgt)
 
     def _heal(self, g, p, t):
@@ -1179,6 +1167,9 @@ class 曹操(Char):
     thunder_reflect = True
 
     def on_sha_used(self, g, p, card):
+        if self.shi >= 10:   # 弒最多 10 個
+            g.log(f"  {p.name}[曹操] 弒已達上限 10 個")
+            return
         self.shi += 1
         g.log(f"  {p.name}[曹操] 獲得 1 個弒 (共 {self.shi})")
 
@@ -1861,9 +1852,7 @@ class 關興(Char):
         names = sorted({c.name for c in p.hand if sum(1 for x in p.hand if x.name == c.name) >= 2})
         return [(SkillAct(f"關興-棄兩張{n}", lambda g, p, t, n=n: self._run(g, p, n)), None) for n in names]
 
-    skill_options = offturn_options
-
-    def _run(self, g, p, n):
+    def _run(self, g, p, n):   # 只能在別人的回合發動 (回合開始 / 出牌階段結束時會跳出詢問框),自己的出牌階段不能用
         for c in [x for x in p.hand if x.name == n][:2]:
             g.discard_card(p, c)
         self.immune_turn = g.turn_id
@@ -1989,7 +1978,7 @@ class 袁術(Char):
     name, faction = "袁術", "群"
 
     def on_cards_discarded(self, g, p, c):  # 我的牌被捨棄: 其他人也要棄 1 張牌,否則 -1 點體力 (可閃)
-        if not g.trigger_ok(p, "袁術-連坐"):
+        if getattr(g, "in_discard_phase", False) or not g.trigger_ok(p, "袁術-連坐"):   # 棄牌階段的棄牌不觸發
             return
         g.link(f"{p.name}[袁術] 牌被捨棄,其他人要棄 1 張牌,否則 -{g.dmg_preview(p, 1)} 點體力 (可閃)")
         for q in list(g.others(p)):
@@ -2002,6 +1991,8 @@ class 袁術(Char):
                 g.log(f"  {q.name} 棄置 {cd}")
             elif not g.need_response(q, "閃", {"attacker": p}):
                 g.damage(p, q, 1, _bonus=False)
+
+    def on_judged(self, g, p, c): self.on_cards_discarded(g, p, c)   # 判定也算「牌被捨棄」
 
     def on_sha_used(self, g, p, card):  # 每出一張殺扣 1 點血
         g.log(f"  {p.name}[袁術] 出殺,扣 1 點體力")
@@ -2068,8 +2059,13 @@ class 司馬炎(Char):
         top = [c for c in (g.pop_deck() for _ in range(max(p.hp, 1))) if c]
         if not top:
             return True
-        for _ in range(min(2, len(top))):
-            c = p.agent.pick_pile(g, p, top)
+        n_top = len(top)
+        for k in range(min(2, len(top))):
+            g.pile_ctx = f"司馬炎: 從翻開的 {n_top} 張牌中選 2 張加入手牌 (第 {k + 1} 張)"
+            try:
+                c = p.agent.pick_pile(g, p, top)
+            finally:
+                g.pile_ctx = None
             top.remove(c)
             p.hand.append(c)
         g.log(f"  {p.name}[司馬炎] 翻開 {len(top) + 2} 張,拿 2 張,棄掉 {len(top)} 張")
@@ -2190,7 +2186,7 @@ class 陳群(Char):
         t = _borrow_pick(g, p, cands, "陳群-借技能")
         p.borrow2 = [t]
         g.log(f"  {p.name}[陳群] 2 點體力: 擁有 {t.name} 的技能 (直到他死亡)")
-        if t._char.name == "蔣幹":   # 蔣幹「你有1血」: 血量變 1,離開 2 血所以這次複製隨即失效
+        if t._char.name == "蔣幹":   # 蔣幹「你有1血」: 體力變 1,離開 2 血所以這次複製隨即失效
             p.hp = 1
             p.borrow2 = []
             g.log(f"  {p.name}[陳群] 複製蔣幹: 體力變成 1,離開 2 點體力,複製失效")
@@ -2201,7 +2197,7 @@ class 陳群(Char):
         else:
             p.borrow2 = []
 
-    def on_healed(self, g, p):   # 血量變成 2 時馬上選要複製誰;離開 2 血就失去
+    def on_healed(self, g, p):   # 體力變成 2 時馬上選要複製誰;離開 2 血就失去
         if p.hp == 2 and p.alive:
             self._borrow(g, p)
         else:

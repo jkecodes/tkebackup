@@ -172,8 +172,11 @@ class Profiles:
 
     DEVS = {"jke", "lone_a"}   # 開發者 (帳號名稱小寫)
 
-    def dev(self, tok):
-        return ACCOUNTS.uuids.get(tok) in self.DEVS
+    TESTERS = {"名字真的很麻煩", "loneachess"}   # 測試者 (帳號名稱小寫): 顯示黃色「測試者」標籤
+
+    def dev(self, tok):   # False / "dev" (開發者) / "tester" (測試者); 前端只看真假與字串
+        u = ACCOUNTS.uuids.get(tok)
+        return "dev" if u in self.DEVS else "tester" if u in self.TESTERS else False
 
     def info(self, tok):
         p = self.get(tok)
@@ -197,7 +200,9 @@ class Profiles:
     def peak_tier(self, p):
         return self.tier_idx(max(p.get("peak_rp", 0), p.get("rp", 0)))
 
-    def lesson_clear(self, tok, ids):
+    LESSON_COINS, LESSON_COINS_ROLE = 10, 40   # 練習關卡第一次過關的遊戲幣 (身分關卡 40)
+
+    def lesson_clear(self, tok, ids, reward=False):
         """記下這個帳號通關的練習關卡 (只收有效的關卡 id);全部通關就解鎖「新兵報到」(新兵框)。"""
         p = self.get(tok)
         if not p:
@@ -205,11 +210,19 @@ class Profiles:
         valid = {L["id"] for L in lessons.LESSONS}
         with self.lock:
             have = set(p.get("lessons", []))
-            have |= {i for i in ids if i in valid}
+            new = {i for i in ids if i in valid} - have
+            gain = 0
+            if reward:   # 打完關卡才給遊戲幣 (只有第一次);瀏覽器補報舊紀錄不給
+                for i in new:
+                    L = lessons.by_id(i)
+                    gain += self.LESSON_COINS_ROLE if L and L.get("group") == "身分" else self.LESSON_COINS
+                if gain:
+                    p["coins"] = p.get("coins", 0) + gain
+            have |= new
             p["lessons"] = sorted(have)
             self._check_ach(p)
             self._save()
-        return {"ok": True, "n": len(have), "total": len(valid)}
+        return {"ok": True, "n": len(have), "total": len(valid), "coins": gain}
 
     def _check_ach(self, p, facts=None):
         new = cosmetics.check_achievements(p, self.level(p["xp"]), self.peak_tier(p), facts or {})
@@ -740,6 +753,31 @@ class Manager:
         """尚無對局/無房主時任何人都可以;否則只有房主。"""
         return not self.host or tok == self.host
 
+    def end_game(self, tok):
+        """休閒局: 隨時可以強制結束這一局 (房主 / 公共房間的任何人 / 坐在位子上的人)。段位局要用棄賽。"""
+        if (self.cfg or {}).get("ranked") and self.game_active():
+            return {"ok": False, "error": "段位局不能強制結束,請用棄賽"}
+        if not (self.is_host(tok) or self.seat_of(tok) is not None):
+            return {"ok": False, "error": "only host"}
+        if self.game is None and not self.lobby:
+            return {"ok": True}
+        with self.plock:
+            self.abort = True
+            self._ans_ev.set(); self._step_ev.set(); self._multi_ev.set()
+            th = self.thread
+            if th and th.is_alive() and th is not threading.current_thread():
+                th.join(timeout=3)
+            self.abort = False
+            self._ans_ev.clear(); self._step_ev.clear(); self._multi_ev.clear()
+            self.game, self.thread, self.rec = None, None, Recorder()
+            self.humans, self.claims = set(), {}
+            self.picking, self.offers, self.picks = False, {}, {}
+            self.cfg, self.paused, self.error, self.pending, self.lobby = {}, False, None, None, False
+            self.multi, self.multi_res, self.multi_win = {}, {}, None
+            self.over_at, self._ans, self.les = None, None, None
+            self._event(f"⛔ {self._name_of(tok)} 強制結束了這一局", "bad", tok)
+        return {"ok": True}
+
     def rematch(self, tok):
         """依照上一局的設定再來一局 (只換種子,武將若原本是隨機就重新抽)。"""
         if not self.is_host(tok):
@@ -922,6 +960,8 @@ class Manager:
         """主動離開房間 (回大廳): 不算斷線,不通知房內其他人;房主離開時交給別人。段位局打到一半離開 = 棄賽。"""
         if tok and (self.cfg or {}).get("ranked") and self.game_active() and self.seat_of(tok) is not None:
             self.forfeit(tok)
+        elif tok and self.game_active() and self.seat_of(tok) is not None and not any(t != tok and time.time() - self.seen.get(t, 0) < self.OFFLINE_AFTER for t in self.claims.values()):
+            self.end_game(tok)   # 休閒局: 最後一個入座的人離開 = 這局沒人玩了,直接結束
         with self.plock:
             if tok not in self.seen:
                 return
@@ -1315,7 +1355,8 @@ class Manager:
         if not L or not (self.cfg or {}).get("lesson"):
             return None
         return {"id": L["id"], "name": L["name"], "group": L["group"], "intro": L["intro"], "tips": L["tips"], "free": bool(L.get("free")),
-                "steps": [x[0] for x in L["steps"]], "cur": st["step"], "done": st["done"], "hint": "" if st["done"] else st.get("hint", "")}
+                "steps": [x[0] for x in L["steps"]], "cur": st["step"], "done": st["done"], "hint": "" if st["done"] else st.get("hint", ""),
+                **({"checklist": True, "got": sorted(st.get("got", ())), "manual": [x["rx"] is None for x in L["skills"]], "cur": len(st.get("got", ()))} if L.get("skills") else {})}
 
     def lesson_leave(self, tok):
         self.les = None
@@ -1333,7 +1374,65 @@ class Manager:
 
     def _lesson_credit(self, lid):
         for t in set(self.claims.values()):   # 坐在位子上的真人都記一次通關
-            PROFILES.lesson_clear(t, [lid])
+            r = PROFILES.lesson_clear(t, [lid], reward=True)
+            if r.get("coins"):
+                self._event(f"🪙 第一次通過這關,獲得 {r['coins']} 遊戲幣", "ok")
+
+    def _lesson_step(self, st, L, m=None):
+        st["step"] += 1
+        st["hint"] = ""
+        st["last_use"] = m.group(1) if m else st.get("last_use", "")
+        if st["step"] >= len(L["steps"]):
+            st["done"] = True
+            self._event("🎓 過關! 這一關完成了", "ok")
+            self._lesson_credit(st["id"])
+
+    def _lesson_flush(self, st, L):
+        """檢查清單關: 已經發動的技能效果結算完了,正式打勾; 全部勾完就過關。"""
+        got = st.setdefault("got", set())
+        got |= st.setdefault("pend", set())
+        st["pend"].clear()
+        if len(got) >= len(L["skills"]) and not st["done"]:
+            st["done"] = True
+            self._event("🎓 過關! 這一關完成了", "ok")
+            self._lesson_credit(st["id"])
+
+    def _lesson_check(self, st, L, msg):
+        got, pend, cnts = st.setdefault("got", set()), st.setdefault("pend", set()), st.setdefault("cnts", {})
+        if re.match(r"--- 第\d+輪 ", msg):
+            cnts.clear()
+            self._lesson_flush(st, L)
+        for i, sk in enumerate(L["skills"]):
+            if i in got or i in pend:
+                continue
+            hit = bool(sk["rx"] and re.search(sk["rx"], msg))
+            c = sk.get("count")
+            if c and not hit and re.search(c[0], msg):
+                cnts[i] = cnts.get(i, 0) + 1
+                hit = cnts[i] >= c[1]
+            if hit:
+                pend.add(i)
+
+    def lesson_ack(self, tok, i):
+        """沒有紀錄可以偵測的被動技能: 玩家按「我看懂了」。"""
+        st = getattr(self, "les", None)
+        L = lessons.by_id(st["id"]) if st else None
+        if not L or not L.get("skills") or st["done"] or not isinstance(i, int) or not 0 <= i < len(L["skills"]) or L["skills"][i]["rx"] is not None:
+            return {"ok": False}
+        st.setdefault("got", set()).add(i)
+        self._lesson_flush(st, L)
+        return {"ok": True}
+
+    def lesson_resolved(self):
+        """武將關: 技能發動後,引擎又回頭問玩家出牌 (或換回合),代表效果都結算完了。"""
+        st = getattr(self, "les", None)
+        L = lessons.by_id(st["id"]) if st else None
+        if st and L and L.get("skills") and not st["done"]:
+            self._lesson_flush(st, L)
+            return
+        if st and st.get("armed") and not st["done"]:
+            st["armed"] = False
+            self._lesson_step(st, lessons.by_id(st["id"]))
 
     def lesson_track(self, msg):
         """教學關卡: 紀錄的每一行都拿來比對目前這一步的 regex,比到就進下一步。"""
@@ -1341,18 +1440,34 @@ class Manager:
         if not st or st["done"]:
             return
         L = lessons.by_id(st["id"])
+        if L is not None and L.get("skills"):
+            self._lesson_check(st, L, msg)
+            return
         if L is None or st["step"] >= len(L["steps"]):
             return
         text, rx = L["steps"][st["step"]][:2]
         m = re.search(r"P0\([^)]*\)[^\n]*使用 ?([^\s]+)", msg)
-        if rx and re.search(rx, msg):
-            st["step"] += 1
-            st["hint"] = ""
-            st["last_use"] = m.group(1) if m else st.get("last_use", "")
-            if st["step"] >= len(L["steps"]):
-                st["done"] = True
-                self._event("🎓 過關! 這一關完成了", "ok")
-                self._lesson_credit(st["id"])
+        if st.get("armed"):   # 武將關: 技能已發動,等效果結算完 (換下一回合) 才算過關
+            if re.match(r"--- 第\d+輪 ", msg):
+                self.lesson_resolved()
+            return
+        hit = bool(rx and re.search(rx, msg))
+        cr = L.get("count")
+        if cr and not hit:   # 「同一回合出幾張殺」這類沒有紀錄行可以比對的技能,自己計次
+            if re.match(r"--- 第\d+輪 ", msg):
+                st["cnt"] = 0
+            elif re.search(cr[0], msg):
+                st["cnt"] = st.get("cnt", 0) + 1
+                hit = st["cnt"] >= cr[1]
+        if hit:
+            if L["group"] == "武將":
+                if L.get("late") and not st.get("acted"):
+                    return   # 一進關就自動發動的技能不算,等玩家真的打過一次出牌階段
+                st["armed"] = True   # 先不過關: 等技能效果結算完 (輪到自己再出牌 / 換回合)
+                return
+            self._lesson_step(st, L, m)
+            return
+        if L["group"] in ("武將", "身分"):   # 武將關卡是自由試技能,出別的牌不算做錯
             return
         # 沒對上這一步: 判斷是不是做錯了,告訴玩家該怎麼做
         h = ""
@@ -1414,6 +1529,10 @@ class Manager:
                 default = [nopass] if nopass is not None else ((rec + [i for i in idx if i not in rec])[:mn])
         if (self.cfg or {}).get("lesson"):
             timeout = None   # 練習關卡: 慢慢想,不倒數、不會自動出牌
+            if kind == "act":
+                self.lesson_resolved()
+                if getattr(self, "les", None):
+                    self.les["acted"] = True
         with self.lock:
             self._req += 1
             rid = self._req
@@ -2143,8 +2262,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/lessons_sync":   # 登入後把這台裝置上已通關的關卡補報給伺服器 (以前只存在瀏覽器)
                 ids = data.get("ids") or []
                 return self._send(200, PROFILES.lesson_clear(data.get("tok"), [str(i) for i in ids][:400]))
+            if path == "/api/lesson_ack":
+                return self._send(200, M.lesson_ack(data.get("tok"), data.get("i")))
             if path == "/api/lesson_done":
                 return self._send(200, M.lesson_done(data.get("tok")))
+            if path == "/api/end_game":
+                return self._send(200, M.end_game(data.get("tok")))
             if path == "/api/rematch":
                 return self._send(200, M.rematch(data.get("tok")))
             if path == "/api/new":
@@ -2191,6 +2314,11 @@ def main():
             except Exception:
                 pass
     threading.Thread(target=_tick, daemon=True).start()
+    try:
+        import announce
+        announce.start_background()   # 版本更新了就把 changelog 貼到 Discord (沒設定 webhook 就什麼都不做)
+    except Exception:
+        pass
     url = f"http://127.0.0.1:{PORT}/"
     print("進化三國 GUI:", url, "(Ctrl+C 結束)")
     if lan:

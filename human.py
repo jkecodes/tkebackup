@@ -1,6 +1,7 @@
 """人類玩家代理: 每個決策都透過 Manager.ask 停下來等 GUI 回答。"""
 import re
 from engine import Player
+from cards import ViewCard
 from characters import SkillAct
 from thinking import opt_label, pname
 from view import ctext, full_name
@@ -87,7 +88,9 @@ class HumanAgent:
         for k in ("attacker", "src", "source"):
             if need in ("閃", "殺") and isinstance(ctx.get(k), Player):
                 who, cc = ctx[k], getattr(g, "cur_card", None)
-                if ctx.get("group"):
+                if who is p:   # 周倉: 沒有傷害來源 (閃電…) 受到傷害,打出等量的閃抵擋
+                    prompt = f"你即將受到傷害,要打出{need}抵擋嗎? (每打出一張抵擋 1 點)"
+                elif ctx.get("group"):
                     prompt = f"{pname(who)} 使用 {full_name(ctx['group'])},要打出{need}嗎?"
                 elif cc is not None and g.cur_user is who and cc.name == "殺":
                     prompt = f"{pname(who)} 對你使用殺,要打出{need}嗎? (不出會受到傷害)"
@@ -100,10 +103,27 @@ class HumanAgent:
             prompt = f"和 {pname(ctx['duel_with'])} 決鬥: 要打出殺嗎? (不出就扣 {g.dmg_preview(ctx['duel_with'], 1, tgt=p, bonus=True)} 點體力)"
         if need in ("劉協棄牌", "夏侯淵給牌", "韓當棄牌", "袁術棄牌") and prompt and isinstance(ctx.get("source"), Player):   # 提示裡的「扣 1 點」要是算完對方強化 / 弱化的
             prompt = prompt.replace("扣 1 點", f"扣 {g.dmg_preview(ctx['source'], 1, tgt=p, bonus=need in ('劉協棄牌', '夏侯淵給牌'))} 點")
-        opts = [self._copt(i, ctext(c), c) for i, c in enumerate(cands)]
-        opts.append(self._copt(len(cands), "不出", None))
+        lab = lambda c: ctext(c) + (f"  → 當作 {full_name(need)}" if need in ("閃", "殺", "桃", "酒") and getattr(c, "name", need) != need else "")   # 技能把這張牌當別的牌用 (關羽的桃當閃…): 選項上寫清楚
+        reacts = []   # 不閃就會受傷: ⚡ 反 / 調 / 占 一起問 [(手牌, 當成哪種)]
+        if need == "閃" and ctx.get("react"):
+            rc, _ = g._reaction_cands(p)
+            reacts = [(c, k) for c in rc for k in g._react_kinds(p, c)]
+            if reacts and prompt:
+                prompt = prompt.replace("要打出閃嗎", "要打出牌嗎")   # 選項裡有閃也有 ⚡ 牌: 不要只寫閃
+        dual = {id(c) for c, _ in reacts}   # 同一張牌既能當閃、又能當 ⚡: 兩個用途分開列
+        opts = [self._copt(i, (ctext(c) + "  → 當作閃打出") if id(c) in dual else lab(c), c) for i, c in enumerate(cands)]
+        for j, (c, k) in enumerate(reacts):
+            opts.append(self._copt(len(cands) + j, (f"{ctext(c)}  → 當作 {full_name(k)} (受傷前使用 ⚡)" if c.name != k else f"{ctext(c)} (受傷前使用 ⚡)"),
+                                   c if c.name == k else ViewCard(k, c.color, "trick", c, id=c.id)))   # 畫面上這張牌直接顯示「當作調虎離山」
+        opts.append(self._copt(len(cands) + len(reacts), "不出", None))
         r = self._ask("respond", prompt or f"響應: {need}", opts)
-        return cands[r[0]] if r and r[0] < len(cands) else None
+        if not r or r[0] >= len(cands) + len(reacts):
+            return None
+        if r[0] >= len(cands):
+            c, k = reacts[r[0] - len(cands)]
+            g._early_react = (c, k, p)   # 不出閃: 傷害結算時直接用這張 ⚡ 牌 (不再問第二次)
+            return None
+        return cands[r[0]]
 
     def respond_race(self, g, entries, tgt):
         """瀕死: 同時問所有真人能不能救,第一個出桃/酒的人救。entries: [(Player, cands)]。回傳 (Player, card) 或 None。"""
@@ -168,7 +188,8 @@ class HumanAgent:
         return "LR"[r[0]]
 
     def choose_x(self, g, p):
-        r = self._ask("count", "發憤圖強: 要抽幾張?", [self._copt(i, str(i + 1)) for i in range(5)])
+        mx = max(1, min(5, p.char.max_fa(g, p)))   # 黃忠最多 3
+        r = self._ask("count", "發憤圖強: 要抽幾張?" + (f" (最多 {mx} 張)" if mx < 5 else ""), [self._copt(i, str(i + 1)) for i in range(mx)])
         return r[0] + 1
 
     def choose_chain(self, g, p):
@@ -181,7 +202,7 @@ class HumanAgent:
 
     def pick_pile(self, g, p, pile):
         opts = [self._copt(i, ctext(c), c) for i, c in enumerate(pile)]
-        r = self._ask("pile", "五穀豐登: 選一張牌", opts)
+        r = self._ask("pile", getattr(g, "pile_ctx", None) or "五穀豐登: 選一張牌", opts)
         return pile[r[0]]
 
     def choose_skill(self, g, p, skill):
@@ -212,10 +233,12 @@ class HumanAgent:
                 d["label"] += f": {ctext(t[1])} {pname(t[0])} → {pname(t[2])}"
                 d["target"] = {"kind": "player", "idx": t[2].idx, "label": pname(t[2])}
             opts.append(d)
-        opts.append(self._copt(len(options), "不發動"))
-        opts.append(self._copt(len(options) + 1, "不發動,這類選項本回合不再詢問"))
-        r = self._ask("skill", (f"{pname(cur)} {when}: 要接連鎖使用 ⚡ 嗎?" if when.startswith(("對你使用", "使用了", "即將受到")) else f"{pname(cur)} 的{when}: 要發動技能嗎?"), opts,
-                      timeout=20, default=[len(options)])   # 20 秒沒回答 = 不發動
+        merged = bool(getattr(g, "_offturn_merged", False))   # 被殺的合併詢問: 選項有連鎖 ⚡ / 閃 / 受傷前 ⚡,不能「本回合不再詢問」
+        opts.append(self._copt(len(options), "不出" if merged else "不發動"))
+        if not merged:
+            opts.append(self._copt(len(options) + 1, "不發動,這類選項本回合不再詢問"))
+        r = self._ask("skill", (f"{pname(cur)} {when}: 要打出牌嗎?" if merged else f"{pname(cur)} {when}: 要接連鎖使用 ⚡ 嗎?" if when.startswith(("對你使用", "使用了", "即將受到")) else f"{pname(cur)} 的{when}: 要發動技能嗎?"), opts,
+                      timeout=None if merged else 20, default=[len(options)])   # 20 秒沒回答 = 不發動 (出閃的合併詢問不設時限,跟原本的出閃詢問一樣)
         if r[0] == len(options) + 1:
             self.muted[sig] = ("turn", g.turn_id)
             return None

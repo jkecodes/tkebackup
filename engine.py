@@ -438,6 +438,8 @@ class Game:
         self.discard.append(getattr(c, "orig", c))
         self.last_judge = (who.idx if who is not None else None, c)
         self.log(f"JUDGE|{who.idx if who is not None else -1}|{c.color}")   # 給前端音效用的隱藏行
+        if who is not None and who.alive:
+            who.char.on_judged(self, who, c)   # 袁術: 自己判定也算牌被捨棄
         return c
 
     def discard_card(self, p, c, played=False):   # played=True: 這是「使用 / 打出」的牌 (無懈、閃、殺回應...),不算被捨棄,不觸發袁術
@@ -472,6 +474,9 @@ class Game:
         """nature: None / '火' / '雷' / '冰'"""
         self.__dict__.pop("_react_declined", None)
         self.__dict__.pop("_pre_react", None)
+        er = self.__dict__.pop("_early_react", None)   # 出閃的詢問裡就選好了反 / 調 / 占 (一次問完): 接到這次傷害上
+        if er is not None and er[2] is tgt and er[0] in tgt.hand:
+            self._pre_react, self._react_pick = er[0], er[1]
         raw = n   # 還沒算任何加成的原始傷害: 反擊轉出去時從這個重算 (來源變成反擊的人,用他的加成)
         if not tgt.alive or n <= 0:
             return
@@ -528,7 +533,7 @@ class Game:
             src.dmg_total += n
         self.last_dealt = n
         self.stats["damage"] += n
-        self.log(f"  {tgt.name} 受到 {n} 點{nature or ''}傷害 (來源 {src.name if src else '無來源'}) -> 體力 {tgt.hp}")
+        self.log(f"  {tgt.name} 受到 {n} 點{nature or ''}傷害 (來源 {src.name if src else '技能或牌的效果'}) -> 體力 {tgt.hp}")
         if src and src is not tgt and tgt.role == "主公":
             self.lord_attackers.add(src.idx)
         if src and src is not tgt and not self.in_group:
@@ -574,10 +579,15 @@ class Game:
                 if not (q.alive and tgt.alive and (src is None or src.alive)):
                     continue
                 opts = [(c, t) for c, t in self.play_options(q) if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出")]
-                reacts, vname = self._reaction_cands(tgt) if q is tgt and hasattr(q.agent, "_ask") else ([], None)   # 真人受傷: 反 / 調 / 占 也列在同一個詢問裡 (電腦照舊在 damage_reactions 決定)
+                reacts, vname = self._reaction_cands(tgt) if q is tgt and hasattr(q.agent, "_ask") and self.__dict__.get("_pre_react") is None else ([], None)   # 真人受傷: 反 / 調 / 占 也列在同一個詢問裡 (電腦照舊在 damage_reactions 決定)
                 if not opts and not reacts:
                     continue
-                opts += [(c, None) for c in reacts]
+                rmap = {}   # 詢問裡的選項 -> (實際手牌, 當成哪種): 手牌是當作別的牌用的,選項要寫「閃 → 調虎離山」
+                for c in reacts:
+                    for k in self._react_kinds(tgt, c):
+                        o = c if c.name == k else ViewCard(k, c.color, "trick", c, id=c.id)
+                        rmap[id(o)] = (c, k)
+                        opts.append((o, None))
                 note = f" (反擊轉出 {self.dmg_preview(tgt, (raw if raw is not None else n) * (2 if tgt.char.fan_double else 1), bonus=True)} 點)" if any(vname(x) == "反" for x in reacts) else ""
                 i = q.agent.choose_offturn(self, q, opts, tgt, f"即將受到 {n} 點傷害{note}")
                 if i is None:
@@ -585,7 +595,8 @@ class Game:
                         self._react_declined = True   # 已經問過要不要出反 / 調 / 占 了,不再問第二次
                     continue
                 c, t = opts[i]
-                if q is tgt and c in reacts:   # 選的是反 / 調 / 占: 交給 damage_reactions 結算 (不再問第二次)
+                if q is tgt and id(c) in rmap:   # 選的是反 / 調 / 占: 交給 damage_reactions 結算 (不再問第二次)
+                    c, self._react_pick = rmap[id(c)]
                     self._pre_react = c
                     self._dmg_ctx = None
                     return n
@@ -633,6 +644,13 @@ class Game:
             return [], vname
         return [c for c in tgt.hand if vname(c)], vname
 
+    def _react_kinds(self, tgt, c):
+        """這張手牌在受傷時可以當成哪幾種 (反 / 調 / 占): 閃可以當調虎離山的人,詢問時要明講「閃 → 調虎離山」。"""
+        banned = self.banned()
+        if c.name in ("反", "調", "占"):
+            return [] if c.name in banned else [c.name]
+        return [k for k in ("調", "占") if k not in banned and tgt.char.as_card(self, tgt, c, k)]
+
     def damage_reactions(self, src, tgt, n, nature, raw=None):
         """⚡ 反/調/占: 要受到傷害時使用。回傳實際要承受的傷害 (0=被抵銷或轉移)。"""
         pre = self.__dict__.pop("_pre_react", None)   # 傷害結算前的 ⚡ 詢問裡,受傷的人已經選好的反 / 調 / 占 (合併成一次詢問)
@@ -654,7 +672,8 @@ class Game:
                 break
             self.discard_card(tgt, c)
             self.chain_view.append((c, tgt.idx))
-            cname = vname(c) or "調"
+            pick = self.__dict__.pop("_react_pick", None)
+            cname = pick if pick in self._react_kinds(tgt, c) or pick == c.name else (vname(c) or "調")
             self.log(f"  {tgt.name} 使用 {c}" + ("" if cname == c.name else f" 當作 {cname}"))
             for q in list(self.alive_players()):
                 q.char.on_card_used(self, q, tgt, c)
@@ -843,6 +862,12 @@ class Game:
     def need_response(self, p, name, ctx=None):
         """要求 p 打出一張 name。回傳 True 代表打出。"""
         ctx = ctx or {}
+        self.__dict__.pop("_early_react", None)
+        ans = self.__dict__.pop("_pre_ans", None)   # 殺指定目標後的合併詢問 (連鎖 ⚡ / 出閃 / 受傷前 ⚡ 一次問完) 已經回答過了
+        if ans is not None and (name != "閃" or ans["tgt"] is not p):
+            ans = None
+        if name == "閃" and ctx.get("attacker") is not None:
+            ctx["react"] = True   # 不閃就會受傷: 真人的詢問裡一起列出 ⚡ 反 / 調 / 占 (閃可以當調虎離山的人,點下去分「當閃」或「當調虎離山」)
         if name == "閃" and not ctx.get("ignore_armor") and (
                 p.has_armor("八卦陣") or (not p.armor_names() and p.char.virtual_bagua(self, p))):
             j = self.flip_judge(p)
@@ -853,9 +878,14 @@ class Game:
         if name == "殺" and p.has_weapon("丈八蛇矛") and len(p.hand) >= 2:  # 兩張手牌當一張殺打出
             low = sorted(p.hand, key=lambda x: _CV.get(x.name, 3 if x.kind == "trick" else 2))[:4]
             cands += [PairView("殺", "", "basic", a, extra=b) for a, b in itertools.combinations(low, 2)]
+        if ans is not None and ans["react"]:
+            self._early_react = (*ans["react"], p)   # 選了受傷前的 ⚡ 牌 = 不出閃,傷害結算時直接用
         if not cands:
             return False
-        c = p.agent.respond(self, p, name, cands, ctx)
+        if ans is not None:
+            c = ans["shan"] if ans["shan"] in cands else None
+        else:
+            c = p.agent.respond(self, p, name, cands, ctx)
         if c:
             if isinstance(c, PairView):
                 self.discard_card(p, c.orig, played=True)
@@ -887,13 +917,40 @@ class Game:
                 opts += [(c, t) for c, t in tgt.char.skill_options(self, tgt) if getattr(c, "name", "") == "呂布-無效全場"]
             if not opts:
                 return voided
+            merged, rmap, shan_ids = False, {}, set()
+            if getattr(card, "name", "") == "殺" and not when and hasattr(tgt.agent, "_ask"):
+                # 真人被殺: 連鎖 ⚡ / 出閃 / 受傷前的 ⚡ (反 / 調 / 占) 放在同一個詢問裡,不要分兩次問
+                merged = True
+                for c in tgt.hand:
+                    if c.name == "閃" or tgt.char.as_card(self, tgt, c, "閃"):
+                        opts.append((c, None)); shan_ids.add(id(c))
+                rc, _ = self._reaction_cands(tgt)
+                for c in rc:
+                    for k in self._react_kinds(tgt, c):
+                        o = c if c.name == k else ViewCard(k, c.color, "trick", c, id=c.id)
+                        rmap[id(o)] = (c, k)
+                        opts.append((o, None))
             cur, w = p, when or f"對你使用{_fn(card.name)}"
             if when and when.startswith("使用了") and self.chain_view:   # 連鎖上已有別人接的牌: 問的是最新那張
                 last, who = self.chain_view[-1]
                 if not isinstance(last, (tuple, dict)) and hasattr(last, "name") and isinstance(who, int) and who != p.idx and who != tgt.idx:
                     from view import full_name
                     cur, w = self.players[who], f"使用了{full_name(last.name)}"
-            i = tgt.agent.choose_offturn(self, tgt, opts, cur, w)
+            self._offturn_merged = merged
+            try:
+                i = tgt.agent.choose_offturn(self, tgt, opts, cur, w)
+            finally:
+                self._offturn_merged = False
+            if merged and (i is None or id(opts[i][0]) in shan_ids or id(opts[i][0]) in rmap):
+                ans = {"tgt": tgt, "shan": None, "react": None}   # 選出閃 / 受傷前 ⚡ / 不出: 之後 need_response 直接照這個結果,不再問
+                if i is not None:
+                    c0 = opts[i][0]
+                    if id(c0) in rmap:
+                        ans["react"] = rmap[id(c0)]
+                    else:
+                        ans["shan"] = c0
+                self._pre_ans = ans
+                return voided
             if i is None:
                 return voided
             c, t = opts[i]
@@ -978,6 +1035,13 @@ class Game:
                 return
 
     def use_sha(self, p, tgt, card, count=True):
+        self.__dict__.pop("_pre_ans", None)
+        try:
+            return self._use_sha(p, tgt, card, count)
+        finally:
+            self.__dict__.pop("_pre_ans", None)
+
+    def _use_sha(self, p, tgt, card, count=True):
         if count:
             self.sha_used += 1
         self.log(f"{p.name} 對 {tgt.name} 使用 {card}")
@@ -1074,7 +1138,7 @@ class Game:
         for hc in p.hand:
             cards.append(hc)
             for vn in p.char.views(self, p, hc):
-                cards.append(ViewCard(vn, hc.color, "basic" if vn in BASIC_NAMES else "trick", hc))
+                cards.append(ViewCard(vn, hc.color, "basic" if vn in BASIC_NAMES else "armor" if vn in ("八卦陣", "仁王盾") else "trick", hc, id=hc.id if vn in ("八卦陣", "仁王盾") else -1))   # 張遼: 紅牌當八卦陣 / 黑牌當仁王盾 (裝備)
         for c in cards:
             n = c.name
             if n == "殺":
@@ -1429,14 +1493,13 @@ class Game:
             if not self.wuxie_contest(p, tgt, "順", True) and tgt.all_cards():
                 c = self.pick_card(p, tgt)
                 self.remove_from(tgt, c)
-                p.hand.append(c)
+                p.hand.append(getattr(c, "orig", c))   # 對方的裝備可能是手牌當的 (張遼)
                 self.log(f"  {p.name} 取得 {tgt.name} 的一張牌")
         elif n == "過":
             self.log(f"{p.name} 對 {tgt.name} 使用 過")
             if not self.wuxie_contest(p, tgt, "過", True) and tgt.all_cards():
                 c = self.pick_card(p, tgt)
-                self.remove_from(tgt, c)
-                self.discard.append(getattr(c, "orig", c))
+                self.discard_card(tgt, c)   # 走一般的捨棄流程: 袁術的牌被拆掉要觸發技能
                 self.log(f"  {p.name} 棄置 {tgt.name} 的 {c}")
         elif n == "決":
             self.log(f"{p.name} 對 {tgt.name} 使用 決")
@@ -1659,7 +1722,7 @@ class Game:
                 i = q.agent.choose_option(self, q, "留下哪一件" + kind, [f"留下 {q.equip[a]!r} (丟掉 {q.equip[b]!r})", f"留下 {q.equip[b]!r} (丟掉 {q.equip[a]!r})"])
                 drop = b if i in (None, 0) else a
                 self.log(f"  {q.name} 不能同時裝備兩件{kind},丟掉 {q.equip[drop]}")
-                self.discard.append(q.equip[drop])
+                self.discard.append(getattr(q.equip[drop], "orig", q.equip[drop]))
                 q.equip[drop] = None
             if not q.equip[a] and q.equip[b]:   # 只剩第二格: 移回第一格
                 q.equip[a], q.equip[b] = q.equip[b], None
@@ -1677,10 +1740,10 @@ class Game:
             if p.equip[a] and p.equip[b]:   # 兩格都滿了: 問要換掉哪一件
                 i = p.agent.choose_option(self, p, "換裝", [f"換掉 {p.equip[a]!r}", f"換掉 {p.equip[b]!r}"])
                 slot = (a, b)[i if i in (0, 1) else 0]
-        p.hand.remove(card)
+        p.hand.remove(getattr(card, "orig", card))   # 手牌當裝備 (張遼): 實際從手牌拿走的是原本那張
         old = p.equip[slot]
         if old:
-            self.discard.append(old)
+            self.discard.append(getattr(old, "orig", old))
         p.equip[slot] = card
         self.log(f"{p.name} 裝備 {card}")
         for q in list(self.alive_players()):
@@ -1915,8 +1978,12 @@ class Game:
                 self.log(f"{p.name} 發憤圖強棄 {k} 張")
         extra = 0 if p.char.skip_discard(self, p) else p.char.discard_amount(self, p, len(p.hand) - self.hand_cap(p))
         if extra > 0:
-            for c in p.agent.choose_discard(self, p, extra, list(p.hand)):
-                self.discard_card(p, c)
+            self.in_discard_phase = True   # 棄牌階段自己丟的牌不算「被捨棄」(袁術不觸發)
+            try:
+                for c in p.agent.choose_discard(self, p, extra, list(p.hand)):
+                    self.discard_card(p, c)
+            finally:
+                self.in_discard_phase = False
             self.log(f"{p.name} 棄 {extra} 張")
         p.turn_flags["discarded"] = max(0, extra)
         self.new_chain()

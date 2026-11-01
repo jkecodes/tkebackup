@@ -132,6 +132,7 @@ const W = [
   ["火焰", "Fire", "火"], ["火殺", "Fire Slash", "火殺"], ["冰殺", "Ice Slash", "氷殺"], ["雷殺", "Thunder Slash", "雷殺"],
   ["反擊", "Counter", "反撃"], ["飢餓", "Famine", "飢餓"], ["當作 調", "as Divert the Tiger", "調虎離山として"], ["當作 占", "as Divination", "占卜として"], ["重鑄酒", "recast Wine", "酒を再鋳造"], ["重鑄閃", "recast Dodge", "閃を再鋳造"], ["棄兩張殺", "discard two Slash", "殺2枚を捨てる"], ["雙牌當殺", "two cards as Slash", "2枚を殺として"], ["換2張牌", "swap 2 cards", "2枚交換"], ["突襲", "Raid", "突襲"], ["調虎離山", "Divert the Tiger", "調虎離山"], ["占卜", "Divination", "占卜"],
   ["無來源", "none", "なし"],
+  ["技能或牌的效果", "skill / card effect", "技能またはカードの効果"],
   ["魏國", "Wei", "魏"], ["蜀國", "Shu", "蜀"], ["吳國", "Wu", "呉"], ["群雄", "Qun", "群雄"], ["晉國", "Jin", "晋"],
   ["轉移", "Swap", "装備交換"], ["增兵減灶", "Reinforce", "増援"], ["增援", "Reinforce", "増援"], ["笑裡藏刀", "Hidden Dagger", "笑裏蔵刀"],
   ["殺", "Slash", "殺"], ["閃", "Dodge", "閃"], ["桃", "Peach", "桃"], ["酒", "Wine", "酒"],
