@@ -694,10 +694,16 @@ class Game:
                     return 0
             elif cname == "調":
                 order = self.side_order(tgt, self.pick_side(tgt))
-                for q in order:
-                    if q.alive and not self.need_response(q, "閃", {"attacker": tgt}):
-                        self.damage(tgt, q, n, nature=None, _bonus=False, _mods=False)   # 轉出去的傷害變成無屬性
-                        return 0   # 調虎離山: 有人沒出閃受到傷害,結算就停止,原本的傷害也抵銷
+                for _ in range(40):   # 繞一圈 (別人依序,最後輪到使用者自己) 都出了閃就再繞一圈,直到有人沒出閃
+                    for q in order + [tgt]:
+                        if q.alive and not self.need_response(q, "閃", {"attacker": tgt}):
+                            if q is tgt:
+                                self.log(f"  {tgt.name} 沒出閃,承受原本的傷害")
+                                return n   # 輪到自己也沒閃: 原本的傷害照受 (不再觸發一次反應)
+                            self.damage(tgt, q, n, nature=None, _bonus=False, _mods=False)   # 轉出去的傷害變成無屬性
+                            return 0   # 調虎離山: 有人沒出閃受到傷害,結算就停止,原本的傷害也抵銷
+                    if not any(q.alive for q in order):
+                        break
         return n
 
     def equip_off(self):
@@ -1324,17 +1330,23 @@ class Game:
             for q in valid:   # 每位被指定的人先有機會接連鎖用 ⚡弱 / 降雷 (例如替自己弱化飢餓的傷害)
                 if q.alive and p.alive:
                     self.sha_window(p, q, SimpleNamespace(name=trick), "使用了" + {"南": "南蠻入侵", "萬": "萬箭齊發", "突": "突襲"}.get(trick, trick))
-        for q in valid:
-            if not q.alive or not p.alive:
-                continue
-            if trick == "突":   # 突襲: 有人受傷結算就停止,所以輪到這個人才問他 (後面沒輪到的人不會被問)
-                self.sha_window(p, q, SimpleNamespace(name=trick), "使用了" + {"南": "南蠻入侵", "萬": "萬箭齊發", "突": "突襲"}.get(trick, trick) + " (結算到你了)")
+        done = False
+        cyc = valid + [p] if trick == "突" and valid else valid   # 突襲: 別人依序出殺,最後輪到出牌者自己也要出
+        for _ in range(40 if trick == "突" else 1):   # 突襲: 都出了殺就再繞一圈,直到有人沒出而受傷
+            for q in cyc:
                 if not q.alive or not p.alive:
                     continue
-            if not self.need_response(q, need, {"attacker": p, "group": trick}):
-                self.damage(p, q, p.char.group_damage(self, p, trick))
-                if trick == "突":
-                    break   # 突襲: 有人沒出殺受到傷害,結算就停止
+                if trick == "突":   # 突襲: 有人受傷結算就停止,所以輪到這個人才問他 (後面沒輪到的人不會被問)
+                    self.sha_window(p, q, SimpleNamespace(name=trick), "使用了" + {"南": "南蠻入侵", "萬": "萬箭齊發", "突": "突襲"}.get(trick, trick) + " (結算到你了)")
+                    if not q.alive or not p.alive:
+                        continue
+                if not self.need_response(q, need, {"attacker": p, "group": trick}):
+                    self.damage(p, q, p.char.group_damage(self, p, trick))
+                    if trick == "突":
+                        done = True
+                        break   # 突襲: 有人沒出殺受到傷害,結算就停止
+            if done or not p.alive or not any(q.alive for q in valid):
+                break
         self.in_group = False
 
     def _fx_hint(self, p, card, tgt):
