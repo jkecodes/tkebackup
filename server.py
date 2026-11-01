@@ -763,6 +763,8 @@ class Manager:
             cfg = dict(cfg, players=lesson["n"], human="0", humans=[], ranked=False, practice=True, chars=[c or "none" for c in lesson["chars"]],
                        lord=lesson["lord"], variant=0, mode="normal", role_mode="normal", base_hp=4, diffs=[], difficulty=2)
         if cfg.get("ranked"):   # 段位模式: 固定規則 (正常模式 / 4 體力 / 隨機主公 / 正常身分)
+            if cfg.get("human") in (None, "", "spectate") and not cfg.get("humans"):
+                return {"ok": False, "error": "段位模式至少要有一個人入座"}
             cfg = dict(cfg, spec_all=False, players=max(4, int(cfg.get("players", 5))), mode="normal", base_hp=4, lord="random", chars=["" for _ in (cfg.get("chars") or [])], role_mode="normal")
         self.abort = True
         self._ans_ev.set()
@@ -1130,6 +1132,8 @@ class Manager:
         if not force and (self.game is not None or self.picking or not self.is_host(tok)):
             return {"ok": False, "error": "only host can start"}
         cfg, n = self.cfg, self.cfg["n"]
+        if cfg.get("ranked") and not self.claims:   # 段位模式: 沒有任何人入座就不能開始 (不然變成全電腦對打)
+            return {"ok": False, "error": "段位模式至少要有一個人入座"}
         self.humans = set(self.claims)   # 沒人坐的真人座位由 AI 接手
         if cfg.get("ranked"):   # 段位模式: 電腦難度由入座真人的平均段位決定,不能自己調
             rps = [PROFILES.get(t).get("rp", 0) if PROFILES.get(t) else 0 for t in self.claims.values()]
