@@ -2808,7 +2808,7 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
     const fill = async () => {
       const r = await call({ a: "players", q }); lst.textContent = "";
       (r.players || []).forEach(p => lst.append(E("div", { class: "pr" + (sel === p.key ? " on" : ""), onclick: async () => { sel = p.key; const d = await call({ a: "detail", key: p.key }); cur = d.ok ? d : null; draw(); } },
-        p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", { text: "Lv" + p.lv }))));
+        p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", { text: p.rank }))));
       if (r.total > (r.players || []).length) lst.append(E("div", { style: "color:#8b95a1;padding:4px", text: "… 共 " + r.total + " 個,請搜尋" }));
     };
     let tm = 0; si.oninput = () => { q = si.value; clearTimeout(tm); tm = setTimeout(fill, 250); };
@@ -2824,13 +2824,22 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
       E("button", { text: "減", onclick: () => act({ a: "coins", key: cur.key, cur: field, mode: "add", n: -Math.abs(+inp.value) }) }),
       E("button", { text: "設為", onclick: () => act({ a: "coins", key: cur.key, cur: field, mode: "set", n: inp.value }) }));
   }
+  function rankRow(c) {   // 改段位 (設成該小段的最低積分) / 直接改積分
+    const sel2 = E("select", { style: "background:#0d0f12;color:#fff;border:1px solid #4a525d;border-radius:4px;padding:5px" }, (c.rank_opts || []).map(o => E("option", { value: String(o.rp), text: o.label + " (" + o.rp + ")" })));
+    const pts = E("input", { type: "number", style: "width:100px", value: String(c.rp) }), pk = E("input", { type: "checkbox" });
+    const go = n => { if (n === "" || isNaN(+n)) { msg("✗ 請輸入積分"); return; } act({ a: "rp", key: c.key, n: n, peak: pk.checked }); };
+    return E("div", { class: "row" }, E("span", { text: "段位: " }), sel2, E("button", { text: "設定段位", onclick: () => go(sel2.value) }),
+      E("span", { text: "積分: " }), pts, E("button", { text: "設定積分", onclick: () => go(pts.value) }),
+      E("label", { style: "display:flex;gap:4px;align-items:center" }, pk, "同時改歷史最高 (外觀 / 成就看這個)"));
+  }
   function drawDetail(det) {
     const c = cur;
     put(det, E("div", { class: "row" }, E("b", { style: "font-size:17px", text: c.user }), c.tag ? E("span", { class: "tag" + (c.tag === "tester" ? " t" : ""), text: c.tag === "tester" ? "測試者" : "開發者" }) : "", E("span", { style: "color:#8b95a1", text: "UID " + c.uid })),
       E("div", { class: "row" }, [["info", "資料"], ["fr", "好友"], ["ach", "成就"], ["cos", "外觀"]].map(([k, n]) => E("button", { class: sub === k ? "on" : "", text: n, onclick: () => { sub = k; draw(); } }))));
     if (sub === "info") {
       const ci = E("input", { placeholder: "輸入「" + c.user + "」確認" });
-      put(det, E("div", { text: `Lv${c.lv} · 積分 ${c.rp} · 轉生 ${c.pres} · ${c.games} 場 ${c.wins} 勝 · 教學 ${c.lessons} 關` }),
+      put(det, E("div", { text: `段位 ${c.rank} · 積分 ${c.rp} (歷史最高 ${c.peak_rp}) · Lv${c.lv} · 轉生 ${c.pres} · ${c.games} 場 ${c.wins} 勝 · 教學 ${c.lessons} 關` }),
+        rankRow(c),
         (() => { const ui = E("input", { placeholder: "新的 8 位數 UID,留空 = 隨機", style: "width:210px" }); return E("div", { class: "row" }, E("span", { text: "UID: " }), E("b", { text: String(c.uid) }), ui,
           E("button", { text: "更改", onclick: () => { if (confirm("把 " + c.user + " 的 UID 改成" + (ui.value.trim() ? " " + ui.value.trim() : "隨機一組") + "?\n(別人加好友、私訊記錄都是用帳號名稱,不受影響;玩家用舊 UID 登入會失效)")) act({ a: "uid", key: c.key, uid: ui.value }); } })); })(),
         E("div", { class: "row" }, E("span", { text: "標籤: " }), [["", "無"], ["tester", "測試者"], ["dev", "開發者"]].map(([v, n]) => E("button", { class: (c.tag || "") === v ? "on" : "", text: n, onclick: () => { if (v === "dev" && !confirm("開發者標籤會讓 " + c.user + " 擁有這個管理介面的全部權限 (改玩家資料、刪帳號、刪房間)。確定?")) return; act({ a: "tag", key: c.key, tag: v }); } }))),

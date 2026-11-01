@@ -2,6 +2,7 @@
 每個動作都記在 DATA/dev_console.log (誰、什麼時候、做了什麼);刪帳號前會先備份資料檔。
 api(ctx, tok, d): ctx 是 server 模組的 globals(),回傳 JSON。"""
 import json
+import math
 import os
 import shutil
 import time
@@ -72,6 +73,20 @@ def _log(ctx, me_key, text):
         pass
 
 
+def _rank_opts(P):
+    """段位下拉選單: [{label, rp}],每個小段的最低積分。"""
+    out = []
+    for i, (nm, lo) in enumerate(P.RANKS):
+        hi = P.RANKS[i + 1][1] if i + 1 < len(P.RANKS) else None
+        if hi is None:
+            out.append({"label": nm, "rp": lo})
+            continue
+        step = (hi - lo) / 3
+        for k in range(3):
+            out.append({"label": f"{nm}{3 - k}", "rp": math.ceil(lo + k * step - 1e-9)})
+    return out
+
+
 def _detail(ctx, k, a, t, p):
     P, S, cos = ctx["PROFILES"], ctx["SOCIAL"], ctx["cosmetics"]
     P._ensure_shop(p)
@@ -80,7 +95,7 @@ def _detail(ctx, k, a, t, p):
     u = S.d["u"].get(k, {"fr": [], "in": [], "out": []})
     nm = lambda x: {"key": x, "user": (ctx["ACCOUNTS"].d.get(x) or {}).get("user", x + " (已刪除)")}
     return {"ok": True, "key": k, "user": a["user"], "uid": p.get("uid"), "tag": P.dev(t) or "", "lv": P.level(p.get("xp", 0)), "xp": p.get("xp", 0),
-            "rp": p.get("rp", 0), "coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": pres, "games": p.get("games", 0), "wins": p.get("wins", 0),
+            "rp": p.get("rp", 0), "peak_rp": p.get("peak_rp", 0), "rank": P.rank_tag(p), "rank_opts": _rank_opts(P), "coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": pres, "games": p.get("games", 0), "wins": p.get("wins", 0),
             "lessons": len(p.get("lessons", [])), "ach": achs, "natural": natural, "grant": p.get("dev_grant", []), "revoke": p.get("dev_revoke", []),
             "friends": [nm(x) for x in u.get("fr", [])], "incoming": [nm(x) for x in u.get("in", [])], "outgoing": [nm(x) for x in u.get("out", [])],
             "created": a.get("created", 0)}
@@ -99,7 +114,7 @@ def api(ctx, tok, d):
             p = P.d.get(a["uuid"], {})
             if kw and kw not in k and kw not in a["user"].lower() and kw != str(p.get("uid")):
                 continue
-            rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "tag": P.dev(a["uuid"]) or ""})
+            rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rank": P.rank_tag(p), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "tag": P.dev(a["uuid"]) or ""})
         rows.sort(key=lambda r: r["user"].lower())
         return {"ok": True, "players": rows[:200], "total": len(rows)}
     if act == "rooms":
@@ -155,6 +170,17 @@ def api(ctx, tok, d):
             elif st == "revoke":
                 r.append(key)
             p["dev_grant"], p["dev_revoke"] = g, r
+            P._save()
+    elif act == "rp":
+        try:
+            n = int(d.get("n"))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "請輸入整數"}
+        if not 0 <= n <= 100000:
+            return {"ok": False, "error": "積分要在 0 ~ 100000"}
+        with P.lock:
+            p["rp"] = n
+            p["peak_rp"] = n if d.get("peak") else max(p.get("peak_rp", 0), n)   # 外觀 / 成就看歷史最高,預設只往上加
             P._save()
     elif act == "uid":
         import random
