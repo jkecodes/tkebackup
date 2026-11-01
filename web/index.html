@@ -1849,7 +1849,7 @@ async function showPlayer(key) {   // 看別人的個人資訊 (在線列表 / �
             h("div", {class: "pchips", style: {margin: "6px 0", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap"}}, presChip(p.pres), rkEl(p.rank, true)))),
         ...rkProgress(p),
         streakLine(p),
-        h("div", {style: {display: "flex", gap: "8px", flexWrap: "wrap", margin: "12px 0"}}, stat("總場數", p.games), stat("勝場", p.wins), stat("勝率", rate(p.wins, p.games)), stat("段位場", p.rgames), stat("段位勝率", rate(p.rwins, p.rgames)), stat("遊玩時間", fmtPlay(p.playtime))),
+        h("div", {style: {display: "flex", gap: "8px", flexWrap: "wrap", margin: "12px 0"}}, stat("總場數", p.games), stat("段位場", p.rgames), stat("勝場", p.wins), stat("勝率", rate(p.wins, p.games)), stat("段位勝率", rate(p.rwins, p.rgames)), stat("遊玩時間", fmtPlay(p.playtime))),
         mutualBox(p),
         h("div", {style: {fontWeight: 700, margin: "10px 0 4px"}, text: "最常使用的武將"}),
         p.chars.length ? h("div", {}, p.chars.map(([n, g, w]) => h("div", {style: {display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px solid #17304f"}},
@@ -2767,5 +2767,123 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
 <script src="/i18n_new.js"></script>
 <script src="/i18n_rank.js"></script>
 <script src="/i18n.js"></script>
+<script>
+/* 開發者管理介面: 只有開發者帳號看得到 (Ctrl+` 開關);所有動作在伺服器上執行並記錄,伺服器會再檢查一次身分 */
+(function () {
+  const isDev = () => { try { return S.prof && S.prof.dev === "dev"; } catch (e) { return false; } };   // S 是 const,不在 window 上
+  const E = (tag, a, ...kids) => { const e = document.createElement(tag); for (const k in (a || {})) { if (k === "style") e.style.cssText = a[k]; else if (k === "text") e.textContent = a[k]; else if (k.startsWith("on")) e[k] = a[k]; else e.setAttribute(k, a[k]); } kids.flat(Infinity).forEach(c => c != null && c !== "" && e.append(c.nodeType ? c : document.createTextNode(c))); return e; };
+  const put = (parent, ...kids) => kids.flat(Infinity).forEach(c => c != null && c !== "" && parent.append(c));   // 原生 append 不會展開陣列
+  const call = async body => { try { return await (await fetch("/api/dev", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ tok: TOK }, body)) })).json(); } catch (e) { return { ok: false, error: "連線失敗" }; } };
+  const KINDS = [["frames", "頭像框"], ["fx", "頭像特效"], ["themes", "主題"], ["boxes", "玩家框"], ["cardbgs", "卡面"], ["cardbacks", "牌背"]];
+  let root = null, cat = null, cur = null, sel = null, sub = "info", tab = "p", q = "";
+  const css = `#devgui{position:fixed;inset:0;z-index:9990;display:none;background:rgba(0,0,0,.55);align-items:flex-start;justify-content:center;padding-top:50px}
+#devgui .dg{width:min(980px,96vw);height:min(640px,88vh);display:flex;flex-direction:column;background:#14161a;border:1px solid #c3ccd8;border-radius:8px;color:#dfe5ec;font-size:13px;box-shadow:0 8px 30px #000}
+#devgui .dh{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid #3a4048}#devgui .dh b{color:#c3ccd8;flex:1}
+#devgui button{background:#232830;color:#dfe5ec;border:1px solid #4a525d;border-radius:4px;padding:4px 10px;cursor:pointer;font:inherit}#devgui button:hover{background:#323944}#devgui button.on{background:#c3ccd8;color:#14161a;font-weight:700}#devgui button.bad{border-color:#e23a3a;color:#ff8a8a}
+#devgui input{background:#0d0f12;color:#fff;border:1px solid #4a525d;border-radius:4px;padding:5px 8px;font:inherit;font-size:14px;min-width:0}
+#devgui .db{flex:1;display:flex;min-height:0}#devgui .dl{width:250px;border-right:1px solid #3a4048;display:flex;flex-direction:column;padding:8px;gap:6px}#devgui .dlist{flex:1;overflow:auto}
+#devgui .pr{padding:5px 6px;border-radius:4px;cursor:pointer;display:flex;gap:6px;align-items:baseline}#devgui .pr:hover{background:#232830}#devgui .pr.on{background:#323944}#devgui .pr small{color:#8b95a1;margin-left:auto}
+#devgui .dr{flex:1;overflow:auto;padding:10px 14px;min-width:0}#devgui .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:5px 0}
+#devgui .tag{background:#7a3cff;color:#fff;border-radius:3px;padding:0 6px;font-size:11px}#devgui .tag.t{background:#f5c518;color:#2b2200}
+#devgui .it{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid #232830}#devgui .it span.n{flex:1}#devgui .st{font-size:11px;padding:0 6px;border-radius:3px}
+#devgui .g{background:#1f6f45}#devgui .rv{background:#8a2a2a}#devgui .nat{background:#4a525d}#devgui .no{background:#2a2d32}
+#devgui pre{margin:0;padding:8px 10px;overflow:auto;white-space:pre-wrap;word-break:break-all;flex:1;font:13px/1.5 Consolas,monospace}
+#devgui .msg{color:#ffd166;min-height:18px}`;
+  function build() {
+    document.head.append(E("style", { text: css }));
+    root = E("div", { id: "devgui", onclick: e => { if (e.target === root) toggle(); } });
+    document.body.append(root);
+  }
+  const msg = t => { const m = root.querySelector(".msg"); if (m) m.textContent = t || ""; };
+  async function act(body, okmsg) { const r = await call(body); if (!r.ok) { msg("✗ " + (r.error || "失敗")); return null; } if (r.key) cur = r; draw().then(() => msg(okmsg || "✓ 完成")); return r; }
+  function shell(body) {
+    root.textContent = "";
+    const tabs = [["p", "玩家"], ["r", "房間"]].map(([k, n]) => E("button", { class: tab === k ? "on" : "", text: n, onclick: () => { tab = k; draw(); } }));
+    root.append(E("div", { class: "dg" }, E("div", { class: "dh" }, E("b", { text: "🛠 開發者管理" }), E("span", { class: "msg" }), tabs, E("button", { text: "✕", onclick: toggle })), body));
+  }
+  async function drawPlayers() {
+    const lst = E("div", { class: "dlist" }), side = E("div", { class: "dl" }), det = E("div", { class: "dr" });
+    const si = E("input", { placeholder: "搜尋帳號 / UID", value: q });
+    side.append(si, lst);
+    const fill = async () => {
+      const r = await call({ a: "players", q }); lst.textContent = "";
+      (r.players || []).forEach(p => lst.append(E("div", { class: "pr" + (sel === p.key ? " on" : ""), onclick: async () => { sel = p.key; const d = await call({ a: "detail", key: p.key }); cur = d.ok ? d : null; draw(); } },
+        p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", { text: "Lv" + p.lv }))));
+      if (r.total > (r.players || []).length) lst.append(E("div", { style: "color:#8b95a1;padding:4px", text: "… 共 " + r.total + " 個,請搜尋" }));
+    };
+    let tm = 0; si.oninput = () => { q = si.value; clearTimeout(tm); tm = setTimeout(fill, 250); };
+    await fill();
+    shell(E("div", { class: "db" }, side, det));
+    if (!cur) { put(det, E("p", { style: "color:#8b95a1", text: "從左邊選一位玩家" })); return; }
+    drawDetail(det);
+  }
+  function numRow(label, field, cur0) {
+    const inp = E("input", { type: "number", style: "width:110px", value: "100" });
+    return E("div", { class: "row" }, E("span", { text: label + ": " }), E("b", { text: String(cur0) }), inp,
+      E("button", { text: "加", onclick: () => act({ a: "coins", key: cur.key, cur: field, mode: "add", n: inp.value }) }),
+      E("button", { text: "減", onclick: () => act({ a: "coins", key: cur.key, cur: field, mode: "add", n: -Math.abs(+inp.value) }) }),
+      E("button", { text: "設為", onclick: () => act({ a: "coins", key: cur.key, cur: field, mode: "set", n: inp.value }) }));
+  }
+  function drawDetail(det) {
+    const c = cur;
+    put(det, E("div", { class: "row" }, E("b", { style: "font-size:17px", text: c.user }), c.tag ? E("span", { class: "tag" + (c.tag === "tester" ? " t" : ""), text: c.tag === "tester" ? "測試者" : "開發者" }) : "", E("span", { style: "color:#8b95a1", text: "UID " + c.uid })),
+      E("div", { class: "row" }, [["info", "資料"], ["fr", "好友"], ["ach", "成就"], ["cos", "外觀"]].map(([k, n]) => E("button", { class: sub === k ? "on" : "", text: n, onclick: () => { sub = k; draw(); } }))));
+    if (sub === "info") {
+      const ci = E("input", { placeholder: "輸入「" + c.user + "」確認" });
+      put(det, E("div", { text: `Lv${c.lv} · 積分 ${c.rp} · 轉生 ${c.pres} · ${c.games} 場 ${c.wins} 勝 · 教學 ${c.lessons} 關` }),
+        (() => { const ui = E("input", { placeholder: "新的 8 位數 UID,留空 = 隨機", style: "width:210px" }); return E("div", { class: "row" }, E("span", { text: "UID: " }), E("b", { text: String(c.uid) }), ui,
+          E("button", { text: "更改", onclick: () => { if (confirm("把 " + c.user + " 的 UID 改成" + (ui.value.trim() ? " " + ui.value.trim() : "隨機一組") + "?\n(別人加好友、私訊記錄都是用帳號名稱,不受影響;玩家用舊 UID 登入會失效)")) act({ a: "uid", key: c.key, uid: ui.value }); } })); })(),
+        E("div", { class: "row" }, E("span", { text: "標籤: " }), [["", "無"], ["tester", "測試者"], ["dev", "開發者"]].map(([v, n]) => E("button", { class: (c.tag || "") === v ? "on" : "", text: n, onclick: () => { if (v === "dev" && !confirm("開發者標籤會讓 " + c.user + " 擁有這個管理介面的全部權限 (改玩家資料、刪帳號、刪房間)。確定?")) return; act({ a: "tag", key: c.key, tag: v }); } }))),
+        numRow("遊戲幣", "coins", c.coins), numRow("聲望", "renown", c.renown),
+        E("div", { class: "row" }, E("span", { text: "教學關卡: " }), E("button", { text: "全部通關 (不給幣)", onclick: () => act({ a: "lessons", key: c.key, mode: "all" }) }),
+          E("button", { text: "全部清空", onclick: () => { if (confirm("清空 " + c.user + " 的教學通關紀錄?")) act({ a: "lessons", key: c.key, mode: "none" }); } })),
+        E("hr"), E("div", { class: "row" }, E("span", { text: "刪除帳號 (不可復原,會先備份): " }), ci,
+          E("button", { class: "bad", text: "刪除", onclick: async () => { const r = await call({ a: "delete", key: c.key, confirm: ci.value }); if (r.gone) { cur = null; sel = null; draw().then(() => msg("✓ " + r.msg)); } else msg("✗ " + (r.error || r.msg)); } })));
+    } else if (sub === "fr") {
+      const li = (arr, extra) => arr.length ? arr.map(f => E("div", { class: "it" }, E("span", { class: "n", text: f.user }), extra(f))) : E("div", { style: "color:#8b95a1", text: "(沒有)" });
+      const add = E("input", { placeholder: "要加的帳號或 UID" });
+      const del = (t) => f => E("button", { class: "bad", text: t, onclick: () => act({ a: "friend_remove", key: c.key, other: f.key }) });
+      put(det, E("div", { class: "row" }, add, E("button", { text: "直接加為好友", onclick: () => { if (add.value.trim()) act({ a: "friend_add", key: c.key, other: add.value.trim() }); } })),
+        E("b", { text: "好友 " + c.friends.length }), li(c.friends, del("刪除")),
+        E("b", { text: "收到的請求 " + c.incoming.length }), li(c.incoming, del("刪除請求")),
+        E("b", { text: "送出的請求 " + c.outgoing.length }), li(c.outgoing, del("刪除請求")));
+    } else if (sub === "ach") {
+      put(det, E("div", { style: "color:#8b95a1;margin-bottom:4px", text: "收回成就後,如果條件仍然符合,下次對局結算時會重新拿到。" }),
+        ((cat && cat.achs) || []).map(a => { const on = !!c.ach[a.id]; return E("div", { class: "it" }, E("span", { class: "n", text: a.n + " — " + a.d }), E("span", { class: "st " + (on ? "g" : "no"), text: on ? "已解鎖" : "未解鎖" }), E("button", { text: on ? "收回" : "給予", onclick: () => act({ a: "ach", key: c.key, id: a.id, on: !on }) })); }));
+    } else {
+      put(det, E("div", { style: "color:#8b95a1;margin-bottom:4px", text: "「給予」強制解鎖;「收回」強制鎖住 (玩家正在用的會被換掉);「還原」回到原本規則。" }),
+        KINDS.map(([kind, kn]) => [E("b", { text: kn }), ((cat && cat[kind]) || []).map(x => {
+          const key = kind + ":" + x.id, g = c.grant.includes(key), r = c.revoke.includes(key), nat = (c.natural[kind] || []).includes(x.id);
+          const label = r ? ["已收回", "rv"] : g ? ["已給予", "g"] : nat ? ["原本就有", "nat"] : ["未解鎖", "no"];
+          const set = s => () => act({ a: "cos", key: c.key, kind, id: x.id, state: s });
+          return E("div", { class: "it" }, E("span", { class: "n", text: x.n || x.id }), E("span", { class: "st " + label[1], text: label[0] }),
+            (!g && (!nat || r)) ? E("button", { text: "給予", onclick: set("grant") }) : "", (!r && (nat || g)) ? E("button", { text: "收回", onclick: set("revoke") }) : "", (g || r) ? E("button", { text: "還原", onclick: set("default") }) : "");
+        })]));
+    }
+  }
+  async function drawRooms() {
+    const r = await call({ a: "rooms" }), box = E("div", { class: "dr" });
+    put(box, E("div", { class: "row" }, E("button", { text: "重新整理", onclick: draw })), (r.rooms || []).map(m => E("div", { class: "it" }, E("span", { class: "n", text: m.name + (m.solo ? " (單人)" : "") }), E("span", { style: "color:#8b95a1", text: m.id + " · " + m.n + " 人" + (m.playing ? " · 進行中" : "") }),
+      m.id === "main" ? E("span", { style: "color:#8b95a1", text: "公共房間" }) : E("button", { class: "bad", text: "刪除", onclick: async () => { if (confirm("刪除房間「" + m.name + "」? 裡面的人會被踢出。")) { const x = await call({ a: "room_delete", id: m.id }); await draw(); msg(x.ok ? "✓ 已刪除" : "✗ " + x.error); } } }))));
+    shell(E("div", { class: "db" }, box));
+  }
+  async function draw() { if (!root) return; if (tab === "p") await drawPlayers(); else await drawRooms(); }
+  async function toggle() {
+    if (!isDev()) return;
+    if (!root) build();
+    if (root.style.display === "flex") { root.style.display = "none"; return; }
+    root.style.display = "flex";
+    if (!cat) { try { cat = await (await fetch("/api/cosmetics")).json(); } catch (e) { cat = {}; } }
+    draw();
+  }
+  document.addEventListener("keydown", e => { if (e.ctrlKey && (e.key === "`" || e.code === "Backquote")) { e.preventDefault(); toggle(); } });
+  window.SGS_DEVCON = toggle;
+  setInterval(() => {   // 開發者登入後,右下角出現 🛠 按鈕 (有些輸入法會吃掉 Ctrl+`)
+    let b = document.getElementById("devbtn");
+    if (isDev() && !b) { b = E("button", { id: "devbtn", title: "開發者管理 (Ctrl+`)", text: "🛠", onclick: toggle, style: "position:fixed;right:10px;bottom:10px;z-index:9980;width:38px;height:38px;border-radius:50%;border:1px solid #c3ccd8;background:#14161a;color:#fff;font-size:18px;cursor:pointer;opacity:.75" }); document.body.append(b); }
+    else if (!isDev() && b) b.remove();
+  }, 1500);
+})();
+</script>
 </body>
 </html>

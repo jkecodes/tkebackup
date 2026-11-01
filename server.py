@@ -25,6 +25,7 @@ from thinking import Observed, Recorder
 import lessons
 from view import ROOT, DATA, snapshot
 import cosmetics
+import devconsole
 import cardart
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -176,7 +177,10 @@ class Profiles:
 
     def dev(self, tok):   # False / "dev" (開發者) / "tester" (測試者); 前端只看真假與字串
         u = ACCOUNTS.uuids.get(tok)
-        return "dev" if u in self.DEVS else "tester" if u in self.TESTERS else False
+        if u in self.DEVS:
+            return "dev"
+        t = (self.d.get(tok) or {}).get("tag")   # 開發者主控台手動給的標籤
+        return t if t in ("dev", "tester") else "tester" if u in self.TESTERS else False
 
     def info(self, tok):
         p = self.get(tok)
@@ -261,10 +265,23 @@ class Profiles:
         """回傳 ok(kind, id): 這個外觀這位玩家能不能用。"""
         self._ensure_shop(p)
         tier, achs, owned, pres = self.peak_tier(p), p.get("ach", {}), set(p.get("owned", [])), p.get("pres", 0)
+        grant, revoke = set(p.get("dev_grant", [])), set(p.get("dev_revoke", []))   # 開發者主控台手動給 / 收回的外觀
         def ok(kind, v):
             x = cosmetics.find(kind, v)
-            return bool(x) and cosmetics.item_ok(kind, x, tier, achs, owned, pres)
+            key = kind + ":" + v
+            return bool(x) and key not in revoke and (key in grant or cosmetics.item_ok(kind, x, tier, achs, owned, pres))
         return ok
+
+    @staticmethod
+    def dev_adj(p, cos):
+        """開發者手動給 / 收回的外觀,套用到 unlocked_ids 的結果上。"""
+        grant, revoke = set(p.get("dev_grant", [])), set(p.get("dev_revoke", []))
+        out = {}
+        for kind, ids in cos.items():
+            keep = [i for i in ids if kind + ":" + i not in revoke]
+            keep += [k.split(":", 1)[1] for k in grant if k.startswith(kind + ":") and k.split(":", 1)[1] not in keep]
+            out[kind] = keep
+        return out
 
     def buy(self, tok, kind, iid):
         p = self.get(tok)
@@ -312,7 +329,7 @@ class Profiles:
                 self._save()
         tier, achs = self.peak_tier(p), p.get("ach", {})
         st = self.style(tok)
-        return {"coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": p.get("pres", 0), "cos": cosmetics.unlocked_ids(tier, achs, set(p.get("owned", [])), p.get("pres", 0)), "sel": {"frame": st["fr"], "fx": st["fx"], "theme": p.get("theme"), "box": st["bx"], "cardbg": st["cb"], "cardback": st["bk"], "cardart": st["ca"], "genart": st["ga"]},
+        return {"coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": p.get("pres", 0), "cos": self.dev_adj(p, cosmetics.unlocked_ids(tier, achs, set(p.get("owned", [])), p.get("pres", 0))), "sel": {"frame": st["fr"], "fx": st["fx"], "theme": p.get("theme"), "box": st["bx"], "cardbg": st["cb"], "cardback": st["bk"], "cardart": st["ca"], "genart": st["ga"]},
                 "ach": achs, "ach_new": list(p.get("ach_new", [])), "peak_tier": tier, "ach_prog": cosmetics.progress(p, self.level(p["xp"]), max(p.get("peak_rp", 0), p.get("rp", 0)))}
 
     def style(self, tok):
@@ -2166,6 +2183,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, PROFILES.set_style(data.get("tok"), data.get("frame"), data.get("fx"), data.get("theme"), data.get("box"), data.get("cardbg"), data.get("cardback"), data.get("cardart"), data.get("genart")))
             if path == "/api/buy":
                 return self._send(200, PROFILES.buy(data.get("tok"), str(data.get("kind") or ""), str(data.get("id") or "")))
+            if path == "/api/dev":   # 開發者管理介面 (GUI)
+                if PROFILES.dev(data.get("tok")) != "dev":
+                    return self._send(200, {"ok": False, "error": "沒有權限"})
+                return self._send(200, devconsole.api(globals(), data.get("tok"), data))
             if path == "/api/prestige":
                 if is_playing(data.get("tok")):
                     return self._send(200, {"ok": False, "error": "對局進行中不能轉生,請先離開或等這場結束"})
