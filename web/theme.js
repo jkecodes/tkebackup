@@ -1128,7 +1128,7 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
           h("div", { style: { padding: "6px 22px 18px", maxHeight: "70vh", overflowY: "auto" } },
             achMode || tab === "theme" || tab === "cardbg" || tab === "cardback" ? null : preview(), achMode ? null : buyRow(),
             achMode ? null : h("div", { class: "tabs" }, ...tabs.map(([k, n]) => h("button", { class: k === tab ? "on" : "", text: n, onclick: () => { tab = k; pv = null; render(); } }))),
-            body, h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px", gap: "8px" } }, h("span"), h("button", { class: "primary", text: "完成", onclick: close }))))));
+            body, achMode ? null : h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px", gap: "8px" } }, h("span"), h("button", { class: "primary", text: "完成", onclick: close }))))));   // 成就列表右上角有 ✕,不放最下面的完成按鈕
     };
     render();
   }
