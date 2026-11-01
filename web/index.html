@@ -455,6 +455,7 @@ body:has(#modal .modal:not(.soft)) #bHand{display:none!important}   /* 新遊戲
   .modal{align-items:center}
   .modal:not(.soft) .dlg{width:calc(100vw - 20px);max-width:calc(100vw - 20px);border-radius:14px}   /* 手機: 一般視窗 (暱稱 / 大廳 / 設定…) 放螢幕中間;打牌詢問 (.soft) 才貼在底部 */
   .dlg{width:100vw;max-width:100vw;border-radius:14px 14px 0 0;max-height:78dvh;padding:12px}
+  .dlg.setup{max-height:calc(100dvh - 24px);padding:0}   /* 手機的新遊戲視窗: 高度不要靠頂端列高度算,量到怪值時會被壓到只剩標題 */
   .opts .card{width:64px;height:92px}
   .opts .card.land{width:92px;height:64px}
   .seatgrid{grid-template-columns:1fr}
@@ -547,7 +548,7 @@ img.av{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:
 .pl .nm{flex-direction:column!important;align-items:flex-start!important;gap:0!important;padding:2px 8px 2px 7px}
 .pl .nm .nr{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .pl .nm .who{margin:0!important;font-size:11px;line-height:1.3;opacity:.95}
-.pl .nm .who{display:flex;align-items:center;gap:4px}.pl .nm .who .rk{vertical-align:baseline;line-height:1.4}   /* 頭貼 / 名字 / 段位標籤: 上下置中 (標籤原本靠基線對齊會偏上) */
+.pl .nm .who{display:flex;align-items:center;flex-wrap:wrap;gap:4px}.pl .nm .who .whorank{flex:0 0 100%;display:flex;align-items:center;gap:4px;margin-top:2px}.pl .nm .who .rk{vertical-align:baseline;line-height:1.4}   /* 頭貼 / 名字 / 段位標籤: 上下置中 (標籤原本靠基線對齊會偏上) */
 .pl.waiting .nm::after{content:none!important}.pl.waiting .inf>.nr::after{content:" ⏳"}
 .pl .nm{left:50%!important;transform:translateX(-50%);align-items:center!important}   /* 頭貼 + 玩家資訊標籤: 在座位框上方置中 */
 .pl .inf>.nr{display:flex;align-items:center;gap:4px;min-width:0;font-weight:700;font-size:14px;color:#fff;white-space:nowrap}
@@ -1121,7 +1122,7 @@ function renderTable0(snap) {
     (p.badges || []).forEach(b => tags.append(h("span", {class: "tag bd bd-" + b.k, text: b.t})));
     const inf = h("div", {class: "inf"},
       h("div", {class: "nm"}, h("span", {class: "pn", title: p.char || "", text: "P" + p.idx + " " + ((p.disguise_kind === "disguise" && !p.dg_flip && p.disguise) || p.char || "無名")}), role, winners.has(p.idx) ? h("span", {class: "winb", text: "🏆 勝"}) : ""),
-      h("div", {}, hearts(p)), (zhPick && zhPick.has(p.idx) ? h("div", {class: "meta hpick", title: "隨機選一張手牌", text: "手牌 " + p.hand_n + " ▸", onclick: ev => { ev.stopPropagation(); zsub(zhPick.get(p.idx))(); }}) : h("div", {class: "meta"}, "手牌 " + p.hand_n, bkEl(p.idx))), h("div", {class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai")}, (p.nick || p.is_viewer) ? avEl(p.avatar, (snap.avstyles || {})[p.idx], {class: "av"}) : avEl("bot", (snap.avstyles || {})[p.idx], {class: "av"}), h("span", {class: "wn"}, (p.is_viewer ? "你" + (p.nick ? "(" + p.nick + ")" : "") : p.human ? (p.nick || "🤖 電腦代打") : "🤖 電腦" + (snap.ai_lv && snap.ai_lv[p.idx] ? " · " + diffLabels()[snap.ai_lv[p.idx] - 1] : ""))), p.nick || p.is_viewer ? [" ", rkp(p.lv)] : null, p.host_seat ? h("span", {class: "hst", title: "房主"}, " 👑", h("span", {class: "hstx", text: "房主"})) : ""),
+      h("div", {}, hearts(p)), (zhPick && zhPick.has(p.idx) ? h("div", {class: "meta hpick", title: "隨機選一張手牌", text: "手牌 " + p.hand_n + " ▸", onclick: ev => { ev.stopPropagation(); zsub(zhPick.get(p.idx))(); }}) : h("div", {class: "meta"}, "手牌 " + p.hand_n, bkEl(p.idx))), h("div", {class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai")}, (p.nick || p.is_viewer) ? avEl(p.avatar, (snap.avstyles || {})[p.idx], {class: "av"}) : avEl("bot", (snap.avstyles || {})[p.idx], {class: "av"}), h("span", {class: "wn"}, (p.is_viewer ? "你" + (p.nick ? "(" + p.nick + ")" : "") : p.human ? (p.nick || "🤖 電腦代打") : "🤖 電腦" + (snap.ai_lv && snap.ai_lv[p.idx] ? " · " + diffLabels()[snap.ai_lv[p.idx] - 1] : ""))), p.host_seat ? h("span", {class: "hst", title: "房主"}, " 👑", h("span", {class: "hstx", text: "房主"})) : "", p.nick || p.is_viewer ? h("div", {class: "whorank"}, rkp(p.lv)) : null),   // 段位 (轉生 + 段位標籤) 放在名字下面一行
       tags);
     { const who = inf.querySelector(".who"), nmEl = inf.querySelector(".nm");   // 玩家資訊 (暱稱 / 等級) 寫在武將名字的上面,都放在框外
       if (who && nmEl) { const row = h("div", {class: "nr"}); while (nmEl.firstChild) row.append(nmEl.firstChild); nmEl.append(who); inf.insertBefore(row, nmEl.nextSibling); } }   // 框外左上角只放頭貼+玩家資訊;P幾/武將名稱/身分放到框裡面、體力上面一排
@@ -2012,7 +2013,7 @@ function openSetup() {
       sect("進階", "", h("div", {class: "adv"},
         h("label", {class: "fld"}, h("span", {text: "亂數種子"}), seed),
         h("label", {class: "fld", title: "打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)"}, h("span", {text: "旁觀者可看全部身分 / 手牌"}), specAll),
-        h("label", {class: "fld"}, h("span", {text: "AI 速度 (0.05 = 最快)"}), h("div", {class: "rng"}, speed, speedV)))),
+        h("label", {class: "fld"}, h("span", {text: "每步長度 (秒,0.05 = 最快)"}), h("div", {class: "rng"}, speed, speedV)))),
       sect("座位與武將", "留「隨機武將」會從 " + roster.length + " 位武將中抽,不重複;勾「開放玩家」讓玩家入座。段位模式: 武將全部隨機,座位全部開放,按下開始後想打的人按「參戰」,沒按的自動觀戰,沒人坐的座位由電腦擔任", h("div", {}, openAll, seatBox))),
     h("div", {class: "df"}, h("button", {text: "取消", onclick: close}), h("button", {class: "primary big", text: "開始遊戲", onclick: start})));
   M.append(h("div", {class: "modal"}, dlg, rkSide));
@@ -2336,7 +2337,7 @@ function applySide(hide) {
   mb.onclick = () => setMenu(!document.body.classList.contains("menu-open"));
   $("#top").addEventListener("click", e => { const b = e.target.closest("button"); if (b && b !== mb) setMenu(false); });
   document.addEventListener("click", e => { if (document.body.classList.contains("menu-open") && !e.target.closest("#top")) setMenu(false); }); }
-new MutationObserver(() => { if ($("#modal").childNodes.length) { const mp = $("#members"); if (mp) mp.classList.remove("on"); } const on = S.modalOpen === "setup"; if (on) document.body.style.setProperty("--toph", ($("#top").offsetHeight || 48) + "px"); document.body.classList.toggle("setup-open", on); }).observe($("#modal"), {childList: true});   // 新遊戲設定: 上方那一排不被蓋住
+new MutationObserver(() => { if ($("#modal").childNodes.length) { const mp = $("#members"); if (mp) mp.classList.remove("on"); } const on = S.modalOpen === "setup"; if (on) document.body.style.setProperty("--toph", Math.min(90, $("#top").offsetHeight || 48) + "px"); document.body.classList.toggle("setup-open", on); }).observe($("#modal"), {childList: true});   // 新遊戲設定: 上方那一排不被蓋住
 $("#bSide").onclick = () => applySide(!document.body.classList.contains("hide-side"));
 try { if (localStorage.getItem("hideSide")) applySide(true); } catch (e) {}
 window.addEventListener("resize", () => { if (S.snap) renderTable(S.snap); });
