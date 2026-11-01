@@ -423,6 +423,7 @@ body:has(#modal .modal:not(.soft)) #bHand{display:none!important}   /* 新遊戲
   html,body{font-size:14px;-webkit-text-size-adjust:100%}
   button{min-height:40px;padding:6px 14px}
   select,input[type=number]{min-height:38px}
+  select,textarea,input:not([type=range]):not([type=checkbox]):not([type=radio]){font-size:16px}   /* iOS: 輸入框字小於 16px 時,點進去瀏覽器會自動放大整個頁面 */
   #app{height:100dvh;grid-template-rows:auto 1fr auto auto;grid-template-columns:minmax(0,1fr)}
   #top,#mid,#bottom{min-width:0}
   #top{flex-wrap:nowrap;overflow-x:auto;padding:6px 8px;gap:8px;white-space:nowrap}
@@ -548,7 +549,7 @@ img.av{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:
 .pl .nm{flex-direction:column!important;align-items:flex-start!important;gap:0!important;padding:2px 8px 2px 7px}
 .pl .nm .nr{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .pl .nm .who{margin:0!important;font-size:11px;line-height:1.3;opacity:.95}
-.pl .nm .who{display:flex;align-items:center;flex-wrap:wrap;gap:4px}.pl .nm .who .whorank{flex:0 0 100%;display:flex;align-items:center;gap:4px;margin-top:2px}.pl .nm .who .rk{vertical-align:baseline;line-height:1.4}   /* 頭貼 / 名字 / 段位標籤: 上下置中 (標籤原本靠基線對齊會偏上) */
+.pl .nm .who{display:flex;align-items:center;gap:4px}.pl .nm .who .whorank{display:flex;align-items:center;gap:4px;flex:0 0 auto}.pl .nm .who .hst{order:1}.pl .nm .who.clk{cursor:pointer}.pl .nm .who.clk:hover{filter:brightness(1.25)}   /* 點名字框看這位玩家的資訊 */.pl .nm .who .rk{vertical-align:baseline;line-height:1.4}@media (max-width:600px){.pl .nm .who{flex-wrap:wrap}.pl .nm .who .whorank{flex:0 0 100%;margin-top:2px}.pl .nm .who .hst{order:0}}   /* 頭貼 / 名字 / 段位標籤: 上下置中 (標籤原本靠基線對齊會偏上) */
 .pl.waiting .nm::after{content:none!important}.pl.waiting .inf>.nr::after{content:" ⏳"}
 .pl .nm{left:50%!important;transform:translateX(-50%);align-items:center!important}   /* 頭貼 + 玩家資訊標籤: 在座位框上方置中 */
 .pl .inf>.nr{display:flex;align-items:center;gap:4px;min-width:0;font-weight:700;font-size:14px;color:#fff;white-space:nowrap}
@@ -1123,7 +1124,7 @@ function renderTable0(snap) {
     (p.badges || []).forEach(b => tags.append(h("span", {class: "tag bd bd-" + b.k, text: b.t})));
     const inf = h("div", {class: "inf"},
       h("div", {class: "nm"}, h("span", {class: "pn", title: p.char || "", text: "P" + p.idx + " " + ((p.disguise_kind === "disguise" && !p.dg_flip && p.disguise) || p.char || "無名")}), role, winners.has(p.idx) ? h("span", {class: "winb", text: "🏆 勝"}) : ""),
-      h("div", {}, hearts(p)), (zhPick && zhPick.has(p.idx) ? h("div", {class: "meta hpick", title: "隨機選一張手牌", text: "手牌 " + p.hand_n + " ▸", onclick: ev => { ev.stopPropagation(); zsub(zhPick.get(p.idx))(); }}) : h("div", {class: "meta"}, "手牌 " + p.hand_n, bkEl(p.idx))), h("div", {class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai")}, (p.nick || p.is_viewer) ? avEl(p.avatar, (snap.avstyles || {})[p.idx], {class: "av"}) : avEl("bot", (snap.avstyles || {})[p.idx], {class: "av"}), h("span", {class: "wn"}, (p.is_viewer ? "你" + (p.nick ? "(" + p.nick + ")" : "") : p.human ? (p.nick || "🤖 電腦代打") : "🤖 電腦" + (snap.ai_lv && snap.ai_lv[p.idx] ? " · " + diffLabels()[snap.ai_lv[p.idx] - 1] : ""))), p.host_seat ? h("span", {class: "hst", title: "房主"}, " 👑", h("span", {class: "hstx", text: "房主"})) : "", p.nick || p.is_viewer ? h("div", {class: "whorank"}, rkp(p.lv, true)) : null),   // 段位 (轉生 + 段位標籤) 放在名字下面一行
+      h("div", {}, hearts(p)), (zhPick && zhPick.has(p.idx) ? h("div", {class: "meta hpick", title: "隨機選一張手牌", text: "手牌 " + p.hand_n + " ▸", onclick: ev => { ev.stopPropagation(); zsub(zhPick.get(p.idx))(); }}) : h("div", {class: "meta"}, "手牌 " + p.hand_n, bkEl(p.idx))), h("div", Object.assign({class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai")}, ((a) => a ? {class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai") + " clk", title: "查看個人資訊", onclick: ev => { ev.stopPropagation(); showPlayer(a); }} : {})(((snap.online || []).find(o => o.seat === p.idx && o.acc) || {}).acc)), (p.nick || p.is_viewer) ? avEl(p.avatar, (snap.avstyles || {})[p.idx], {class: "av"}) : avEl("bot", (snap.avstyles || {})[p.idx], {class: "av"}), h("span", {class: "wn"}, (p.is_viewer ? "你" + (p.nick ? "(" + p.nick + ")" : "") : p.human ? (p.nick || "🤖 電腦代打") : "🤖 電腦" + (snap.ai_lv && snap.ai_lv[p.idx] ? " · " + diffLabels()[snap.ai_lv[p.idx] - 1] : ""))), p.host_seat ? h("span", {class: "hst", title: "房主"}, " 👑", h("span", {class: "hstx", text: "房主"})) : "", p.nick || p.is_viewer ? h("div", {class: "whorank"}, rkp(p.lv, true)) : null),   // 段位 (轉生 + 段位標籤) 放在名字下面一行
       tags);
     { const who = inf.querySelector(".who"), nmEl = inf.querySelector(".nm");   // 玩家資訊 (暱稱 / 等級) 寫在武將名字的上面,都放在框外
       if (who && nmEl) { const row = h("div", {class: "nr"}); while (nmEl.firstChild) row.append(nmEl.firstChild); nmEl.append(who); inf.insertBefore(row, nmEl.nextSibling); } }   // 框外左上角只放頭貼+玩家資訊;P幾/武將名稱/身分放到框裡面、體力上面一排
@@ -1612,7 +1613,7 @@ function playerPos(i) {
   const el = document.querySelector(`#table .pl[data-idx="${i}"]`), w = $("#tablewrap");
   if (!el) return null;
   const a = el.getBoundingClientRect(), b = w.getBoundingClientRect();
-  return [a.left - b.left + a.width / 2, a.top - b.top + a.height / 2];
+  return [a.left - b.left + w.scrollLeft + a.width / 2, a.top - b.top + w.scrollTop + a.height / 2];   // 手機的牌桌容器會上下捲動,箭頭 / 飛字是畫在隨內容捲動的圖層上,座標要加上捲動量
 }
 function noteAction(s) {
   if (/^---/.test(s)) return;

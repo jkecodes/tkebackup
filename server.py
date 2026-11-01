@@ -1315,7 +1315,7 @@ class Manager:
         if not L or not (self.cfg or {}).get("lesson"):
             return None
         return {"id": L["id"], "name": L["name"], "group": L["group"], "intro": L["intro"], "tips": L["tips"], "free": bool(L.get("free")),
-                "steps": [x[0] for x in L["steps"]], "cur": st["step"], "done": st["done"]}
+                "steps": [x[0] for x in L["steps"]], "cur": st["step"], "done": st["done"], "hint": "" if st["done"] else st.get("hint", "")}
 
     def lesson_leave(self, tok):
         self.les = None
@@ -1343,13 +1343,30 @@ class Manager:
         L = lessons.by_id(st["id"])
         if L is None or st["step"] >= len(L["steps"]):
             return
-        rx = L["steps"][st["step"]][1]
+        text, rx = L["steps"][st["step"]][:2]
+        m = re.search(r"P0\([^)]*\)[^\n]*使用 ?([^\s]+)", msg)
         if rx and re.search(rx, msg):
             st["step"] += 1
+            st["hint"] = ""
+            st["last_use"] = m.group(1) if m else st.get("last_use", "")
             if st["step"] >= len(L["steps"]):
                 st["done"] = True
                 self._event("🎓 過關! 這一關完成了", "ok")
                 self._lesson_credit(st["id"])
+            return
+        # 沒對上這一步: 判斷是不是做錯了,告訴玩家該怎麼做
+        h = ""
+        if m and not (st.get("last_use") and set(re.sub("[紅黑火冰雷]", "", st["last_use"])) & set(re.sub("[紅黑火冰雷]", "", m.group(1)))):
+            h = f"剛剛出的「{m.group(1)}」不是這一步要的"
+        elif re.search(r"P0\([^)]*\)\s*受到 \d+ 點", msg):
+            h = "你受到傷害了,和這一步想教的不一樣"
+        elif re.match(r"--- 第\d+輪 P0\(", msg):
+            st["own"] = True
+        elif st.get("own") and "點" in text and re.match(r"--- 第\d+輪 P[1-9]\(", msg):
+            st["own"] = False
+            h = "你的回合結束了,這一步還沒完成"
+        if h:
+            st["hint"] = f"❌ {h}。現在該做的是:{text}。想重來就按「↻ 重來」"
 
     def on_log(self, msg):
         self.lesson_track(msg)
@@ -1962,12 +1979,13 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(404, {"error": "not found"})
                 raw = body.encode("utf-8")
                 etag = '"' + hashlib.md5(raw).hexdigest() + '"'
+                cc = "max-age=86400" if q.get("v", [""])[0] else "no-cache"   # 網址帶版本號 (?v=) 的卡面內容不會變: 讓瀏覽器直接用快取,座位上的武器 / 防具每次重畫才不會閃 (沒帶版本號的照舊每次確認)
                 if self.headers.get("If-None-Match") == etag:   # 卡面 SVG 內嵌水墨圖很大: 沒變就回 304
-                    self.send_response(304); self.send_header("ETag", etag); self.send_header("Cache-Control", "no-cache"); self.end_headers()
+                    self.send_response(304); self.send_header("ETag", etag); self.send_header("Cache-Control", cc); self.end_headers()
                     return
                 self.send_response(200)
                 self.send_header("Content-Type", "image/svg+xml"); self.send_header("Content-Length", str(len(raw)))
-                self.send_header("ETag", etag); self.send_header("Cache-Control", "no-cache")
+                self.send_header("ETag", etag); self.send_header("Cache-Control", cc)
                 self.send_header("X-Content-Type-Options", "nosniff"); self.send_header("Referrer-Policy", "no-referrer")
                 self.end_headers(); self.wfile.write(raw)
                 return

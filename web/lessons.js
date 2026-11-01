@@ -4,9 +4,9 @@
 (function () {
   const KEY = "sgs_lessons_done";
   const T = {
-    zh: { title: "練習關卡", sub: "不用照順序,挑想學的就好。隨時都能離開。", done: "已完成", of: "/", leave: "離開", retry: "重來", tips: "重點", next: "下一關", fin: "我學會了", ok: "過關!", step: "步驟", back: "回到教學", ask: "離開練習關卡?", free: "自由練習: 照技能說明試試看,學會了就按「我學會了」", all: "全部", todo: "只顯示未通關", alldone: "這一類全部通關了!", ng: "還沒有關卡", load: "載入中…" },
-    en: { title: "Practice Levels", sub: "Pick any level, in any order. You can leave anytime.", done: "Done", of: "/", leave: "Leave", retry: "Retry", tips: "Tips", next: "Next", fin: "Got it", ok: "Cleared!", step: "Step", back: "Back to tutorial", ask: "Leave this level?", free: "Free practice: try the skill as described, then press \"Got it\".", all: "All", todo: "Unfinished only", alldone: "All cleared here!", ng: "No levels yet", load: "Loading…" },
-    ja: { title: "練習ステージ", sub: "好きな順番で選べます。いつでも終了できます。", done: "クリア", of: "/", leave: "終了", retry: "やり直し", tips: "ポイント", next: "次へ", fin: "覚えた", ok: "クリア!", step: "手順", back: "チュートリアルへ", ask: "このステージを終了しますか?", free: "自由練習: 説明どおりに試して、覚えたら「覚えた」を押してください。", all: "すべて", todo: "未クリアのみ", alldone: "このカテゴリは全部クリア!", ng: "ステージがありません", load: "読み込み中…" },
+    zh: { title: "練習關卡", sub: "不用照順序,挑想學的就好。隨時都能離開。", done: "已完成", of: "/", leave: "離開", retry: "重來", tips: "重點", next: "下一關", fin: "我學會了", ok: "過關!", step: "步驟", back: "回到教學", ask: "離開練習關卡?", free: "自由練習: 照技能說明試試看,學會了就按「我學會了」", all: "全部", todo: "只顯示未通關", alldone: "這一類全部通關了!", ng: "還沒有關卡", load: "載入中…", pass: "通過教學!", menu: "回到教學選單", again: "再玩一次" },
+    en: { title: "Practice Levels", sub: "Pick any level, in any order. You can leave anytime.", done: "Done", of: "/", leave: "Leave", retry: "Retry", tips: "Tips", next: "Next", fin: "Got it", ok: "Cleared!", step: "Step", back: "Back to tutorial", ask: "Leave this level?", free: "Free practice: try the skill as described, then press \"Got it\".", all: "All", todo: "Unfinished only", alldone: "All cleared here!", ng: "No levels yet", load: "Loading…", pass: "Level cleared!", menu: "Back to levels", again: "Play again" },
+    ja: { title: "練習ステージ", sub: "好きな順番で選べます。いつでも終了できます。", done: "クリア", of: "/", leave: "終了", retry: "やり直し", tips: "ポイント", next: "次へ", fin: "覚えた", ok: "クリア!", step: "手順", back: "チュートリアルへ", ask: "このステージを終了しますか?", free: "自由練習: 説明どおりに試して、覚えたら「覚えた」を押してください。", all: "すべて", todo: "未クリアのみ", alldone: "このカテゴリは全部クリア!", ng: "ステージがありません", load: "読み込み中…", pass: "ステージクリア!", menu: "ステージ一覧へ", again: "もう一度" },
   };
   const tx = k => (T[(window.SGS_I18N && SGS_I18N.lang) || "zh"] || T.zh)[k];
   const GN = { "基本牌": { en: "Basic", ja: "基本" }, "錦囊": { en: "Tricks", ja: "錦囊" }, "裝備": { en: "Equipment", ja: "装備" }, "身分": { en: "Roles", ja: "身分" }, "武將": { en: "Generals", ja: "武将" } };
@@ -55,7 +55,10 @@
 #lsbar .dots{display:flex;gap:4px}#lsbar .dots i{width:8px;height:8px;border-radius:50%;background:#456;display:block}#lsbar .dots i.d{background:#4cd488}#lsbar .dots i.c{background:#3fd2ff;box-shadow:0 0 0 2px rgba(63,210,255,.35)}
 #lsbar .sp{flex:1}#lsbar button{background:#ffffff14;border:1px solid #ffffff30;border-radius:6px;color:#e6edf7;cursor:pointer;font-size:13px;padding:4px 10px;min-height:32px}
 #lsbar button.pri{background:#2a7de1;border-color:#2a7de1;color:#fff}#lsbar.ok button.pri{background:#2f8f5a;border-color:#2f8f5a}
-#lsbar .st{margin-top:6px;line-height:1.5}#lsbar .tp{margin-top:6px;padding:6px 10px;background:#0b1622;border-radius:6px;font-size:13px;color:#cfe0f5;max-height:32vh;overflow:auto}
+#lsbar .st{margin-top:6px;line-height:1.5}#lspass{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}
+.lspd{padding:22px 26px;text-align:center;max-width:min(380px,calc(100vw - 32px));min-width:0;height:auto;border:1px solid #4cd488}.lspt{font-size:22px;font-weight:700;color:#4cd488}.lsps{margin:6px 0 16px;color:#c7d3e6}
+.lspb{display:flex;flex-direction:column;gap:8px}.lspb button{background:#232c3d;border:1px solid #394559;border-radius:8px;color:#e6edf7;font-size:15px;padding:10px;min-height:44px;cursor:pointer}.lspb button.pri{background:#2f8f5a;border-color:#2f8f5a;color:#fff}
+#lsbar .wr{padding:6px 10px;background:#4a1d1d;border:1px solid #e0605a;border-radius:6px;color:#ffd5d2;font-size:13px}#lsbar .tp{margin-top:6px;padding:6px 10px;background:#0b1622;border-radius:6px;font-size:13px;color:#cfe0f5;max-height:32vh;overflow:auto}
 #lsbar .tp p{margin:3px 0;line-height:1.5}
 body.ls-on #modal .modal{padding-top:var(--lspush,0)!important;box-sizing:border-box;align-items:safe center!important}   /* 詢問視窗往下讓開步驟列 */
 @media (max-width:600px){#lsbar{top:52px;font-size:13px}.lsgrid{grid-template-columns:repeat(2,1fr)}}
@@ -133,19 +136,32 @@ body.ls-on #modal .modal{padding-top:var(--lspush,0)!important;box-sizing:border
 
   const push = bar => { const r = bar.getBoundingClientRect(); document.body.style.setProperty("--lspush", Math.ceil(r.bottom + 8) + "px"); };
 
+  function passDlg(ls) {   // 過關: 告訴玩家通過了,並可回到教學選單
+    addCss();
+    const old = document.getElementById("lspass"); if (old) old.remove();
+    const nx = nextOf(ls.id), shut = () => { const d = document.getElementById("lspass"); if (d) d.remove(); };
+    const box = el("div", { id: "lspass" }, el("div", { class: "lsdlg lspd", role: "dialog" },
+      el("div", { class: "lspt", text: "🎓 " + tx("pass") }), el("div", { class: "lsps", text: gname(ls.group) + " · " + ls.name }),
+      el("div", { class: "lspb" },
+        el("button", { type: "button", class: "pri", text: tx("menu"), onclick: () => { shut(); api("/api/lesson_leave", {}).then(() => open(ls.group)).catch(() => open(ls.group)); } }),
+        nx ? el("button", { type: "button", text: tx("next") + " ›", onclick: () => { shut(); start(nx.id); } }) : null,
+        el("button", { type: "button", text: "↻ " + tx("again"), onclick: () => { shut(); start(ls.id); } }))));
+    document.body.append(box);
+  }
+
   function sync(snap) {
     const ls = snap && snap.lesson;
     let bar = document.getElementById("lsbar");
     if (!ls) { if (bar) bar.remove(); curId = null; document.body.classList.remove("ls-on"); return; }
     addCss(); load().catch(() => {});
     curId = ls.id;
-    if (ls.done && !saved) { saved = true; markDone(ls.id); }
+    if (ls.done && !saved) { saved = true; markDone(ls.id); passDlg(ls); }
     if (!ls.done) saved = false;
     if (!bar) { bar = el("div", { id: "lsbar", role: "status" }); document.body.append(bar); }
     bar.className = ls.done ? "ok" : "";
     const nx = nextOf(ls.id), n = ls.steps.length;
     const text = ls.done ? "✅ " + tx("ok") : n ? ls.steps[Math.min(ls.cur, n - 1)] : tx("free");
-    const sig = [ls.id, ls.cur, ls.done, tipsOn, n, window.SGS_I18N ? SGS_I18N.lang : ""].join("|");
+    const sig = [ls.id, ls.cur, ls.done, tipsOn, n, ls.hint || "", window.SGS_I18N ? SGS_I18N.lang : ""].join("|");
     document.body.classList.add("ls-on");
     if (bar.dataset.sig === sig) { push(bar); return; }
     bar.dataset.sig = sig;
@@ -161,6 +177,7 @@ body.ls-on #modal .modal{padding-top:var(--lspush,0)!important;box-sizing:border
       el("button", { type: "button", text: "☰", "aria-label": tx("title"), title: tx("title"), onclick: () => open(ls.group) }),
       el("button", { type: "button", text: "✕ " + tx("leave"), onclick: () => { if (confirm(tx("ask"))) { bar.remove(); curId = null; document.body.classList.remove("ls-on"); api("/api/lesson_leave", {}).then(() => { if (window.openSetup) openSetup(); }).catch(() => {}); } } })));
     bar.append(el("div", { class: "st", text: text }));
+    if (ls.hint && !ls.done) bar.append(el("div", { class: "st wr", text: ls.hint }));
     if (tipsOn && ls.tips && ls.tips.length) bar.append(el("div", { class: "tp" }, el("p", { text: ls.intro }), ls.tips.map(x => el("p", { text: "• " + x }))));
     push(bar);
   }
