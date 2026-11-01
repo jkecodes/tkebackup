@@ -121,7 +121,7 @@ body.ls-on #modal .modal{padding-top:var(--lspush,0)!important;box-sizing:border
     if (ranked()) { toast(rankedMsg()); return; }
     try {
       if (window.SGS_HINT_OFF) SGS_HINT_OFF();
-      curId = id; tipsOn = false; saved = false;
+      curId = id; tipsOn = false;   // saved 不在這裡清掉: 新關卡還沒建好時,輪詢還會拿到上一關「已過關」的畫面,清掉會讓過關視窗再跳一次;等收到沒過關的新畫面 (sync) 才清
       if (!ROOM || ROOM !== lessonRoom) {   // 練習關卡一律開自己的私人單人房 (不動到公共房間 / 別人的房間)
         const old = ROOM;
         const r = await (await fetch("/api/room_create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tok: TOK, name: "練習關卡", solo: true }) })).json();
