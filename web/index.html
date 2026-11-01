@@ -406,7 +406,7 @@ body:has(#modal .modal:not(.soft)) #bHand{display:none!important}   /* 新遊戲
 #log .arw .ln{display:inline-block;width:12px;height:3px;background:var(--ac);border-radius:2px;box-shadow:0 0 6px var(--ac)}
 #log .arw .ah{display:inline-block;width:0;height:0;border-left:9px solid var(--ac);border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:-1px;filter:drop-shadow(0 0 4px var(--ac))}
 #log .arw img.lc{margin:0 3px}
-#log img.lc.dl{width:62px;height:44px;transform:rotate(-90deg);margin:9px -7px}#log .arw img.lc.dl{margin:9px -6px}
+#log img.lc.dl{width:62px;height:44px;margin:9px 2px}#log .arw img.lc.dl{margin:9px 3px}   /* 延時錦囊 (橫的牌): 戰報裡橫放,外框和圖都是橫的、不轉向 */
 #log .dmgb{color:#ffb4bf;font-weight:800;margin:0 3px}
 #log .pc{font-weight:700;color:#d7ecff}
 .picks{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}.pk{flex:1 1 200px;max-width:260px;background:rgba(10,22,44,.8);border:1px solid #2f6f9c;border-radius:4px;padding:8px;display:flex;flex-direction:column;gap:4px}.pk img{width:100%;max-height:220px;object-fit:contain}.pk .sk{font-size:12px;color:#c3d6ea}.pk button{margin-top:auto}.pk .sk:last-of-type{margin-bottom:8px}   /* 三張一樣高,「選這位」固定貼在底部對齊 */
@@ -1501,7 +1501,7 @@ function catCard(color, nat, name) {
   const col = color || "紅";
   return {name, full: e.full || name, color: col, img: e.img[col] || e.img["紅"] || e.img["黑"], desc: e.desc, tp: e.tp || "", rng: e.rng || "", land: !!e.land, bolt: e.bolt || "", text: (e.bolt || "") + (color || "") + (nat && !(e.full || "").startsWith(nat) ? nat : "") + (e.full || name)};   // 圖鑑裡冰殺的全名就叫「冰殺」,不要再多加一個冰
 }
-const DELAYED = new Set(["樂", "兵", "草", "閃電", "毒"]);   // 延時錦囊: 戰報裡橫放
+// 延時錦囊 (橫的牌) 戰報裡橫放: 看牌目錄的 land 標記 (牌名可能是全名「樂不思蜀」或短名「樂」,不能用名字比對)
 function lcw(im, c) {   // 戰報裡的牌: 圖下面標出花色 + 圖鑑全名
   return h("span", {class: "lcw"}, h("span", {class: "lcb"}, im, c.tp ? h("span", {class: "tp", text: c.tp}) : null), h("span", {class: "lcn", text: c.text}));
 }
@@ -1517,7 +1517,7 @@ function fullTxt(t) {   // 箭頭文字: 簡稱 → 花色 + 全名
 function cardNodes(str) {
   if (!S.cat || !S.catRe) return [str];
   const t0 = str.trim();
-  if ((S.cat[t0] || (S.fullKey || {})[t0]) && !/^[火冰雷]殺$/.test(t0)) { const c = catCard("", "", t0); if (c && c.img) { const im = h("img", {class: "lc" + (DELAYED.has(c.name) ? " dl" : ""), src: gi(c.img), title: c.text, onclick: () => showCardInfo(c)}); bindPrev(im, c); return [lcw(im, c)]; } }
+  if ((S.cat[t0] || (S.fullKey || {})[t0]) && !/^[火冰雷]殺$/.test(t0)) { const c = catCard("", "", t0); if (c && c.img) { const im = h("img", {class: "lc" + (c.land ? " dl" : ""), src: gi(c.img), title: c.text, onclick: () => showCardInfo(c)}); bindPrev(im, c); return [lcw(im, c)]; } }
   const out = []; let last = 0; S.catRe.lastIndex = 0; let m;
   while ((m = S.catRe.exec(str))) {
     let c = null;
@@ -1528,7 +1528,7 @@ function cardNodes(str) {
     let start = m.index, end = m.index + m[0].length;
     if (m[5]) { start = end - m[5].length; }
     if (start > last) out.push(str.slice(last, start));
-    const im = h("img", {class: "lc" + (DELAYED.has(c.name) ? " dl" : ""), src: gi(c.img), title: c.text, onclick: () => showCardInfo(c)}); bindPrev(im, c);
+    const im = h("img", {class: "lc" + (c.land ? " dl" : ""), src: gi(c.img), title: c.text, onclick: () => showCardInfo(c)}); bindPrev(im, c);
     const cw = lcw(im, c); cw.dataset.zh = str.slice(start, end); out.push(cw); last = end;
   }
   if (last < str.length) out.push(str.slice(last));
