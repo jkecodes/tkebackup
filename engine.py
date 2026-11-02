@@ -678,6 +678,9 @@ class Game:
             self.log(f"  {tgt.name} 使用 {c}" + ("" if cname == c.name else f" 當作 {cname}"))
             for q in list(self.alive_players()):
                 q.char.on_card_used(self, q, tgt, c)
+            self.after_play(tgt, c if c.kind == "trick" else ViewCard(cname, "", "trick", c))   # 反 / 調 / 占 也是錦囊: 鄧艾 / 崔琰 / 曹沖等「有人使用錦囊」的技能要觸發
+            if not tgt.alive:
+                return 0
             if self.wuxie_contest(tgt, tgt, cname, False):
                 continue
             if cname == "反":
