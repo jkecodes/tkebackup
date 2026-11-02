@@ -2793,7 +2793,7 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
 #devgui .it{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid #232830}#devgui .it span.n{flex:1}#devgui .st{font-size:11px;padding:0 6px;border-radius:3px}
 #devgui .g{background:#1f6f45}#devgui .rv{background:#8a2a2a}#devgui .nat{background:#4a525d}#devgui .no{background:#2a2d32}
 #devgui pre{margin:0;padding:8px 10px;overflow:auto;white-space:pre-wrap;word-break:break-all;flex:1;font:13px/1.5 Consolas,monospace}
-#devgui .msg{color:#ffd166;min-height:18px}#devgui .dback{display:none}
+#devgui .od{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;margin-right:6px;flex:none}#devgui .od.off{background:#4a525d}#devgui .msg{color:#ffd166;min-height:18px}#devgui .dback{display:none}
 @media (max-width:820px){#devgui{padding-top:0}#devgui .dg{width:100vw;height:100vh;height:100dvh;border-radius:0;border:0}
 #devgui .db{flex-direction:column}#devgui .dl{width:auto;border-right:0;padding:8px 10px}#devgui .dlist{max-height:none}
 #devgui .dg.hascur .dl{display:none}#devgui .dback{display:inline-block}#devgui .dr{padding:8px 10px}
@@ -2813,18 +2813,22 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
     const tabs = [["p", "玩家"], ["r", "房間"]].map(([k, n]) => E("button", { class: tab === k ? "on" : "", text: n, onclick: () => { tab = k; draw(); } }));
     root.append(E("div", { class: "dg" + (tab === "p" && cur ? " hascur" : "") }, E("div", { class: "dh" }, E("b", { text: "🛠 開發者管理" }), E("span", { class: "msg" }), tabs, E("button", { text: "✕", onclick: toggle })), body));
   }
+  const statusText = c => c.online ? "在線" + (c.where ? " · " + c.where : "") : (c.seen ? "離線 · 最後上線 " + ago(c.now - c.seen) : "離線 · 從未上線");
+  const ago = s => s < 60 ? "剛剛" : s < 3600 ? Math.floor(s / 60) + " 分鐘前" : s < 86400 ? Math.floor(s / 3600) + " 小時前" : Math.floor(s / 86400) + " 天前";
   async function drawPlayers() {
     const lst = E("div", { class: "dlist" }), side = E("div", { class: "dl" }), det = E("div", { class: "dr" });
     const si = E("input", { placeholder: "搜尋帳號 / UID", value: q });
     side.append(si, lst);
     const fill = async () => {
-      const r = await call({ a: "players", q }); lst.textContent = "";
+      const r = await call({ a: "players", q }), st = lst.scrollTop; lst.textContent = "";
       (r.players || []).forEach(p => lst.append(E("div", { class: "pr" + (sel === p.key ? " on" : ""), onclick: async () => { sel = p.key; const d = await call({ a: "detail", key: p.key }); cur = d.ok ? d : null; draw(); } },
-        p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", { text: p.rank }))));
+        E("span", { class: "od" + (p.online ? "" : " off"), title: p.online ? "在線" : "離線" }), p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", { text: p.rank }))));
+      lst.scrollTop = st;
       if (r.total > (r.players || []).length) lst.append(E("div", { style: "color:#8b95a1;padding:4px", text: "… 共 " + r.total + " 個,請搜尋" }));
     };
     let tm = 0; si.oninput = () => { q = si.value; clearTimeout(tm); tm = setTimeout(fill, 250); };
     await fill();
+    const ti = setInterval(() => { if (!lst.isConnected) clearInterval(ti); else fill(); }, 10000);   // 列表上的在線圓點每 10 秒更新
     shell(E("div", { class: "db" }, side, det));
     if (!cur) { put(det, E("p", { style: "color:#8b95a1", text: "從左邊選一位玩家" })); return; }
     drawDetail(det);
@@ -2850,7 +2854,8 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
       E("div", { class: "row" }, [["info", "資料"], ["fr", "好友"], ["ach", "成就"], ["cos", "外觀"]].map(([k, n]) => E("button", { class: sub === k ? "on" : "", text: n, onclick: () => { sub = k; draw(); } }))));
     if (sub === "info") {
       const ci = E("input", { placeholder: "輸入「" + c.user + "」確認" });
-      put(det, E("div", { text: `段位 ${c.rank} · 積分 ${c.rp} (歷史最高 ${c.peak_rp}) · Lv${c.lv} · 轉生 ${c.pres} · ${c.games} 場 ${c.wins} 勝 · 教學 ${c.lessons} 關` }),
+      put(det, E("div", { style: "display:flex;align-items:center" }, E("span", { class: "od" + (c.online ? "" : " off") }), E("span", { text: statusText(c) })),
+        E("div", { text: `段位 ${c.rank} · 積分 ${c.rp} (歷史最高 ${c.peak_rp}) · Lv${c.lv} · 轉生 ${c.pres} · ${c.games} 場 ${c.wins} 勝 · 教學 ${c.lessons} 關` }),
         rankRow(c),
         (() => { const ui = E("input", { placeholder: "新的 8 位數 UID,留空 = 隨機", style: "width:210px" }); return E("div", { class: "row" }, E("span", { text: "UID: " }), E("b", { text: String(c.uid) }), ui,
           E("button", { text: "更改", onclick: () => { if (confirm("把 " + c.user + " 的 UID 改成" + (ui.value.trim() ? " " + ui.value.trim() : "隨機一組") + "?\n(別人加好友、私訊記錄都是用帳號名稱,不受影響;玩家用舊 UID 登入會失效)")) act({ a: "uid", key: c.key, uid: ui.value }); } })); })(),

@@ -120,7 +120,7 @@ def _detail(ctx, k, a, t, p):
             "rp": p.get("rp", 0), "peak_rp": p.get("peak_rp", 0), "rank": P.rank_tag(p), "rank_opts": _rank_opts(P), "coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": pres, "games": p.get("games", 0), "wins": p.get("wins", 0),
             "lessons": len(p.get("lessons", [])), "ach": achs, "natural": natural, "grant": p.get("dev_grant", []), "revoke": p.get("dev_revoke", []),
             "friends": [nm(x) for x in u.get("fr", [])], "incoming": [nm(x) for x in u.get("in", [])], "outgoing": [nm(x) for x in u.get("out", [])],
-            "created": a.get("created", 0)}
+            "created": a.get("created", 0), "online": bool(S.is_online(k)), "where": ctx["friend_where"](k), "seen": int(S.d["u"].get(k, {}).get("seen", 0)), "now": int(time.time())}
 
 
 def api(ctx, tok, d):
@@ -136,7 +136,7 @@ def api(ctx, tok, d):
             p = P.d.get(a["uuid"], {})
             if kw and kw not in k and kw not in a["user"].lower() and kw != str(p.get("uid")):
                 continue
-            rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rank": P.rank_tag(p), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "tag": P.dev(a["uuid"]) or ""})
+            rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rank": P.rank_tag(p), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "tag": P.dev(a["uuid"]) or "", "online": bool(S.is_online(k))})
         rows.sort(key=lambda r: r["user"].lower())
         return {"ok": True, "players": rows[:200], "total": len(rows)}
     if act == "rooms":
