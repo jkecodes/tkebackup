@@ -57,6 +57,52 @@ def delete_self(ctx, tok, pw):
     return {"ok": True}
 
 
+def _rename(ctx, k, a, tok, new):
+    """改帳號名稱: 帳號 key (小寫名稱) 會換掉,好友清單 / 備註 / 私訊都跟著搬。回傳 (新 key, 錯誤訊息)。"""
+    A, P, S = ctx["ACCOUNTS"], ctx["PROFILES"], ctx["SOCIAL"]
+    new = (new or "").strip()
+    if not A.NAME_RE.match(new):
+        return None, "名稱 2~10 字,只能用中英文、數字、底線"
+    nk = new.lower()
+    if nk == k:   # 只改大小寫
+        with A.lock:
+            a["user"] = new
+            A._save()
+        return k, None
+    if nk in A.d:
+        return None, "這個名稱已被使用"
+    if k in P.DEVS or k in P.TESTERS:
+        return None, "寫死在程式裡的開發者 / 測試者帳號不能改名 (標籤是依帳號名稱判斷的)"
+    if nk in P.DEVS or nk in P.TESTERS:
+        return None, "這個名稱保留給開發者 / 測試者,不能用"
+    _backup(ctx)
+    with A.lock:
+        A.d.pop(k, None)
+        a["user"] = new
+        A.d[nk] = a
+        A.uuids[tok] = nk
+        A._save()
+    with S.lock:
+        if k in S.d["u"]:
+            S.d["u"][nk] = S.d["u"].pop(k)
+        for u in S.d["u"].values():
+            for f in ("fr", "in", "out"):
+                if k in u.get(f, []):
+                    u[f] = [nk if x == k else x for x in u[f]]
+            for f in ("rk", "read"):
+                if isinstance(u.get(f), dict) and k in u[f]:
+                    u[f][nk] = u[f].pop(k)
+        for dk in [x for x in S.d["dm"] if k in str(x).split("|")]:
+            msgs = S.d["dm"].pop(dk)
+            for m in msgs:
+                if m.get("f") == k:
+                    m["f"] = nk
+            S.d["dm"]["|".join(sorted(nk if x == k else x for x in str(dk).split("|")))] = msgs
+        S.invites.pop(k, None)
+        S._save()
+    return nk, None
+
+
 def _remove(ctx, k, a, tok):
     P, A, S = ctx["PROFILES"], ctx["ACCOUNTS"], ctx["SOCIAL"]
     bak = _backup(ctx)
@@ -220,6 +266,12 @@ def api(ctx, tok, d):
         with P.lock:
             p["pres"] = n
             P._save()
+    elif act == "rename":
+        nk, err = _rename(ctx, k, a, t, d.get("name"))
+        if err:
+            return {"ok": False, "error": err}
+        k, a = nk, A.d[nk]
+        _log(ctx, me_key, f"rename -> {nk}")
     elif act == "uid":
         import random
         new = str(d.get("uid") or "").strip()

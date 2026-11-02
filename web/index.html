@@ -743,13 +743,12 @@ img.av{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:
 </div>
 <div id="auth"><div class="rbox">
   <h2>進化三國</h2>
-  <div class="meta" id="authmsg">請登入或註冊後開始遊戲</div>
+  <div class="meta" id="authmsg"></div>
   <div class="atabs"><button id="aLogin" class="on">登入</button><button id="aReg">註冊</button></div>
   <input id="auser" type="text" maxlength="10" placeholder="使用者名稱 或 UID" autocomplete="username">
   <input id="apw" type="password" maxlength="64" placeholder="密碼" autocomplete="current-password" style="margin-top:8px">
   <div id="aerr" class="aerr"></div>
   <button id="asubmit" class="primary big">登入</button>
-  <div class="meta" style="margin-top:8px" id="ahint">舊帳號 / 沒設密碼的帳號,預設密碼是 12345,登入後請到「個人資訊」修改。</div>
 </div></div>
 <div id="rooms"><div class="rbox">
   <a class="dc" href="https://discord.gg/e6f24U3T68" target="_blank" rel="noopener noreferrer" title="Discord" aria-label="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>
@@ -2580,7 +2579,7 @@ function setAuthMode(m) {
   $("#apw").autocomplete = m === "reg" ? "new-password" : "current-password";
   $("#asubmit").textContent = m === "reg" ? "註冊" : "登入"; $("#aerr").textContent = "";
 }
-function showAuth(msg) { $("#auth").classList.add("on"); $("#authmsg").textContent = msg || "請登入或註冊後開始遊戲"; }
+function showAuth(msg) { $("#auth").classList.add("on"); $("#authmsg").textContent = msg || ""; }
 async function submitAuth() {
   const user = $("#auser").value.trim(), pw = $("#apw").value;
   if (AUTH_MODE === "reg") { if (!pw) { $("#aerr").textContent = "密碼不能留空"; return; } if (pw.length < 8) { $("#aerr").textContent = "密碼至少要 8 個字元"; return; } }
@@ -2861,6 +2860,8 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
       put(det, E("div", { style: "display:flex;align-items:center" }, E("span", { class: "od" + (c.online ? "" : " off") }), E("span", { text: statusText(c) })),
         E("div", { text: `段位 ${c.rank} · 積分 ${c.rp} (歷史最高 ${c.peak_rp}) · Lv${c.lv} · 轉生 ${c.pres} · ${c.games} 場 ${c.wins} 勝 · 教學 ${c.lessons} 關` }),
         rankRow(c),
+        (() => { const ni = E("input", { placeholder: "新的名稱 (2~10 字)", maxlength: 10, style: "width:210px" }); return E("div", { class: "row" }, lb("名稱"), E("b", { class: "cv", text: c.user, style: "min-width:72px" }), ni,
+          E("button", { text: "更改", onclick: () => { const v = ni.value.trim(); if (!v) { msg("✗ 請輸入新名稱"); return; } if (confirm("把 " + c.user + " 的名稱改成「" + v + "」?\n(好友、私訊會跟著搬;對方之後要用新名稱登入,舊名稱會釋出)")) act({ a: "rename", key: c.key, name: v }); } })); })(),
         (() => { const ui = E("input", { placeholder: "新的 8 位數 UID,留空 = 隨機", style: "width:210px" }); return E("div", { class: "row" }, lb("UID"), E("b", { class: "cv", text: String(c.uid) }), ui,
           E("button", { text: "更改", onclick: () => { if (confirm("把 " + c.user + " 的 UID 改成" + (ui.value.trim() ? " " + ui.value.trim() : "隨機一組") + "?\n(別人加好友、私訊記錄都是用帳號名稱,不受影響;玩家用舊 UID 登入會失效)")) act({ a: "uid", key: c.key, uid: ui.value }); } })); })(),
         E("div", { class: "row" }, lb("標籤"), [["", "無"], ["tester", "測試者"], ["dev", "開發者"]].map(([v, n]) => E("button", { class: (c.tag || "") === v ? "on" : "", text: n, onclick: () => { if (v === "dev" && !confirm("開發者標籤會讓 " + c.user + " 擁有這個管理介面的全部權限 (改玩家資料、刪帳號、刪房間)。確定?")) return; act({ a: "tag", key: c.key, tag: v }); } }))),
