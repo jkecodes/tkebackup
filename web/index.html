@@ -796,14 +796,33 @@ if (!TOK) { TOK = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "
 
 let ROOM = new URLSearchParams(location.search).get("room") || "";
 if (!ROOM) { try { ROOM = sessionStorage.getItem("sgs_room") || ""; } catch (e) {} }
+let _pwAsking = null;
+function askRoomPw() {
+  if (_pwAsking) return _pwAsking;
+  return _pwAsking = (async () => {
+    try {
+      for (let i = 0; i < 5; i++) {
+        const pw = prompt(i ? "密碼不對,請再輸入一次:" : "這個房間需要密碼:"); if (pw == null) return false;
+        const x = await (await fetch("/api/room_join", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({tok: TOK, room: ROOM, password: pw})})).json();
+        if (x.ok) return true;
+        if (!/不正確/.test(x.error || "")) { toast(x.error || "加入失敗"); return false; }
+      }
+      return false;
+    } finally { _pwAsking = null; }
+  })();
+}
 async function api(path, body) {
+  const path0 = path, body0 = body;
   if ((path === "/api/new" || path === "/api/rematch") && !(body && body.practice) && window.SGS_HINT_OFF) SGS_HINT_OFF();   // 開新局: 練習提示橫幅消失
   if (body !== undefined && body && typeof body === "object") body = Object.assign({tok: TOK, room: ROOM || "main"}, body);
   if (body === undefined && path.startsWith("/api/state")) path += "&tok=" + TOK + "&room=" + encodeURIComponent(ROOM || "main") + "&nick=" + encodeURIComponent(myNick()) + "&cm=" + (localStorage.getItem("sgs_chain") || "me");
   const r = await fetch(path, body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
   const j = await r.json();
   if (j && j.gone && ROOM) leaveRoom("房間已不存在 (太久沒有人,已被刪除)");
-  if (j && j.need_pw && ROOM) { leaveRoom("這個房間需要密碼,請從房間列表輸入密碼加入"); return j; }
+  if (j && j.need_pw && ROOM) {   // 直接用房間連結進有密碼的房間: 跳出密碼輸入框,輸入對了就重送這次請求,取消就回大廳
+    if (await askRoomPw()) return api(path0, body0);
+    leaveRoom("這個房間需要密碼,請從房間列表輸入密碼加入"); return j;
+  }
   if (j && j.kicked && ROOM) leaveRoom("你被房主踢出了房間");
   if (j && j.auth === false) showAuth(j.kicked ? "你的帳號已在另一個裝置登入,請重新登入" : "");
   return j;
