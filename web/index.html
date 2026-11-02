@@ -27,6 +27,13 @@ button.primary{background:linear-gradient(180deg,#f2cd77,#d9a63f);color:#2a1d04;
 button:disabled{opacity:.4;cursor:default;transform:none}
 select,input{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 9px}
 input[type=range]{accent-color:var(--accent);padding:0}
+/* 所有勾選框都長成開關滑軌 (!important: 蓋過各主題自己畫的方框) */
+html input[type=checkbox]:not([hidden]):not(.sw input){-webkit-appearance:none!important;appearance:none!important;position:relative;width:40px!important;height:22px!important;padding:0!important;margin:0 6px 0 0;flex:none;vertical-align:middle;cursor:pointer;background:#0e1620!important;border:2px solid var(--line)!important;border-radius:7px!important;box-shadow:none!important;transition:background .15s,border-color .15s}
+html input[type=checkbox]:not([hidden]):not(.sw input)::before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:4px;background:#aeb8c6;transition:transform .15s,background .15s}
+html input[type=checkbox]:not([hidden]):not(.sw input):checked{background:color-mix(in srgb,var(--accent) 30%,#0e1620)!important;border-color:var(--accent)!important}
+html input[type=checkbox]:not([hidden]):not(.sw input):checked::before{transform:translateX(18px);background:var(--accent)}
+html input[type=checkbox]:not([hidden]):not(.sw input):disabled{opacity:.45;cursor:default}
+html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #app{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100vh;height:100dvh}
 #top{display:flex;gap:10px;align-items:center;padding:9px 16px;background:rgba(24,33,43,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);flex-wrap:wrap;box-shadow:0 2px 12px rgba(0,0,0,.35);z-index:3}
 #bMenu{display:none}
@@ -2897,6 +2904,18 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
     if (isDev() && !b) { ensureCss(); b = E("button", { id: "devbtn", title: "開發者管理 (Ctrl+`)", text: "🛠", onclick: toggle, style: "position:fixed;right:10px;bottom:10px;z-index:9980;box-sizing:border-box;width:38px;height:38px;min-width:0;min-height:0;padding:0;margin:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;border:1px solid #c3ccd8;background:#14161a;color:#fff;font-size:18px;cursor:pointer;opacity:.75" }); document.body.append(b); }
     else if (!isDev() && b) b.remove();
   }, 1500);
+})();
+</script>
+<script>
+(() => {   // 測試服 (本機直接跑的伺服器): 名稱改「進化三國測試服」
+  fetch("/api/about").then(r => r.json()).then(a => {
+    if (!a.beta) return;
+    window.SGS_BETA = true;
+    const fix = n => { if (n.nodeType === 3) { if (n.nodeValue.includes("進化三國") && !n.nodeValue.includes("測試服")) n.nodeValue = n.nodeValue.replace("進化三國", "進化三國測試服"); } else n.childNodes.forEach(fix); };
+    const run = () => { document.title = "進化三國測試服"; document.querySelectorAll(".title,h2").forEach(fix); };
+    if (a.behind) { const d = document.createElement("div"); d.textContent = "GitHub 上有新版本 (落後 " + a.behind + " 個提交),請 git pull 後重啟伺服器"; d.style.cssText = "position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:99999;background:#3a2e12;color:#ffd77a;border:1px solid #8a6a1d;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer"; d.onclick = () => d.remove(); document.body.append(d); }
+    run(); new MutationObserver(run).observe(document.body, {childList: true, subtree: true, characterData: true});
+  }).catch(() => {});
 })();
 </script>
 </body>

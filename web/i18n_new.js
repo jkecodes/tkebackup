@@ -111,7 +111,7 @@ window.SGS_LOG_TPL = (window.SGS_LOG_TPL || []).concat([
 ["已邀請 ", "Invited ", "招待しました: "], ["座位已滿", "Seats are full", "席が埋まっています"], ["從未上線", "Never online", "未ログイン"], ["我的 UID: ", "My UID: ", "自分のUID: "],
 ["我的段位", "My rank", "自分のランク"], ["我的段位 ", "My rank ", "自分のランク "], ["房間密碼 (可不設)", "Room password (optional)", "ルームのパスワード(任意)"],
 ["把房主讓給他", "Make them the host", "ホストを譲る"], ["拒絕", "Decline", "拒否"], ["收起", "Collapse", "閉じる"], ["新密碼 (4 字以上,不能是 12345)", "New password (4+ chars, not 12345)", "新しいパスワード(4文字以上、12345は不可)"],
-["旁觀者可看全部身分 / 手牌", "Spectators can see all roles / hands", "観戦者に全員の身分・手札を見せる"],
+["進化三國測試服", "Evolved Three Kingdoms (Beta)", "進化三国テストサーバー"], ["進化三國測試服 · 大廳", "Evolved Three Kingdoms (Beta) · Lobby", "進化三国テストサーバー · ロビー"], ["旁觀者可看全部身分 / 手牌", "Spectators can see all roles / hands", "観戦者に全員の身分・手札を見せる"],
 ["打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)", "When on, spectators without a seat can see everyone's roles and hands (not allowed in ranked, to avoid leaking to players)", "オンにすると、着席していない観戦者が全員の身分と手札を見られます(ランクでは不可。対戦中の人への漏洩防止)"],
 ["更新密碼", "Update password", "パスワードを更新"], ["最後上線: ", "Last online: ", "最終ログイン: "], ["查看個人資訊", "View profile", "プロフィールを見る"],
 ["段位模式: 想打的人按參戰", "Ranked: those who want to play, press Join", "ランク: 遊びたい人は参戦を押す"], ["段位模式: 直接認輸並扣分", "Ranked: concede and lose points", "ランク: 投了してポイントを失う"],

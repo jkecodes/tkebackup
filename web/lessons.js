@@ -41,8 +41,7 @@
 .lsdlg .lss{padding:0 18px 8px;color:#9fb0c8;font-size:13px}.lsgrid>.lss{grid-column:1/-1;padding:8px 2px}   /* 「全部通關了」「找不到」這類提示佔滿整排,不要被擠在一格裡換行 */
 .lsdlg>.lsh,.lsdlg>.lss,.lsdlg>.lstabs{flex:none}.lssub{padding-top:0}.lssub button{font-size:13px;min-height:32px;padding:4px 12px}.lsgrid{flex:1 1 auto;min-height:0}
 .lssrch{padding:0 18px 8px;flex:none}.lssrch input{width:100%;box-sizing:border-box;background:#232c3d;border:1px solid #394559;border-radius:8px;color:#e6edf7;padding:9px 12px;font-size:16px;min-height:40px}.lssrch input:focus{outline:2px solid #3fd2ff;border-color:#3fd2ff}
-.lsflt{display:flex;align-items:center;gap:6px;padding:0 18px 8px;color:#c7d3e6;font-size:13px;cursor:pointer;flex:none}.lsflt input{width:16px;height:16px;accent-color:#3fd2ff}
-.lstabs{display:flex;gap:6px;padding:4px 18px 10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.lstabs::-webkit-scrollbar{display:none}
+.lsflt{display:flex;align-items:center;gap:6px;padding:0 18px 8px;color:#c7d3e6;font-size:13px;cursor:pointer;flex:none}.lstabs{display:flex;gap:6px;padding:4px 18px 10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.lstabs::-webkit-scrollbar{display:none}
 .lstabs button{flex:none;background:#232c3d;border:1px solid #394559;border-radius:99px;color:#c7d3e6;padding:6px 14px;font-size:14px;cursor:pointer;min-height:36px}
 .lstabs button.on{background:#2a7de1;border-color:#2a7de1;color:#fff}.lstabs button i{font-style:normal;opacity:.75;font-size:12px;margin-left:4px}
 .lsgrid{padding:2px 18px 16px;overflow:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-rows:max-content;align-content:start;gap:10px}

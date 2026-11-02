@@ -287,7 +287,7 @@ def snapshot(m, viewer, since_log, since_th, peek):
     dead = viewer is not None and 0 <= viewer < len(g.players) and not g.players[viewer].alive
     cfg_ = m.cfg or {}
     spec_all = (viewer is None or dead) and bool(cfg_.get("spec_all")) and not cfg_.get("ranked")   # 房主開了「旁觀者可看全部」(只有休閒模式);已陣亡的真人也算旁觀者
-    show_all = (viewer is None and not m.humans) or spec_all   # 沒開這個選項時,旁觀者 / 陣亡的人只能看公開資訊
+    show_all = (viewer is None and not m.humans and cfg_.get("spec_all") is not False) or spec_all   # 新遊戲視窗明確沒勾時,全是電腦的房間也一樣只看公開資訊; 沒開這個選項時,旁觀者 / 陣亡的人只能看公開資訊
     spectator = viewer is None or dead
     if spectator and not show_all:
         viewer = -1

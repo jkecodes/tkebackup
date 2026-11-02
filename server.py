@@ -32,6 +32,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 CACHE = os.path.join(WEB, "cache") if DATA == HERE else os.path.join(DATA, "cache")
 PORT = int(os.environ.get("SGS_PORT", "8765"))
+BETA = os.environ.get("SGS_BETA") == "1" or (not os.environ.get("SGS_DATA") and os.environ.get("SGS_BETA") != "0")   # 雲端有設 SGS_DATA;本機直接跑 server.py 就是測試服 (名稱改「進化三國測試服」、版本寫 beta version)
+BEHIND = [0]   # 測試服: 本機比 GitHub 落後幾個提交 (啟動時背景 git fetch 後算出來,0 = 最新或查不到)
+def _check_behind():
+    import subprocess
+    try:
+        kw = dict(cwd=HERE, capture_output=True, text=True, timeout=30)
+        subprocess.run(["git", "fetch", "-q", "origin", "main"], **kw)
+        r = subprocess.run(["git", "rev-list", "--count", "HEAD..origin/main"], **kw)
+        BEHIND[0] = int(r.stdout.strip() or 0)
+        if BEHIND[0]: print("GitHub 上有新版本: 落後 %d 個提交 (git pull 可更新)" % BEHIND[0])
+    except Exception:
+        pass
+if BETA:
+    threading.Thread(target=_check_behind, daemon=True).start()
 os.makedirs(DATA, exist_ok=True)
 
 
@@ -2101,7 +2115,7 @@ class Handler(BaseHTTPRequestHandler):
                     log = open(os.path.join(HERE, "CHANGELOG.md"), encoding="utf-8").read()
                 except OSError:
                     log = ""
-                return self._send(200, {"version": VERSION, "repo": REPO, "changelog": log})
+                return self._send(200, {"version": VERSION, "repo": REPO, "changelog": log, "beta": BETA, "behind": BEHIND[0]})
             if path.startswith("/thumb/char/"):
                 nm = path[len("/thumb/char/"):]
                 return self._file(make_thumb(nm, q.get("art", [""])[0] == "old"), "max-age=86400" if nm == "無名" else None)   # 無名的圖是 SVG,預設不快取: 牌桌每次重畫都重抓會一直閃
