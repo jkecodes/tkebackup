@@ -1909,7 +1909,6 @@ function openSetup() {
   const speed = h("input", {type: "range", min: 0.05, max: 1.5, step: 0.05, value: $("#speed").value});
   const speedV = h("span", {class: "val", text: (+speed.value).toFixed(2) + "s"});
   speed.oninput = () => { speedV.textContent = (+speed.value).toFixed(2) + "s"; };
-  const seed = h("input", {type: "number", placeholder: "隨機", class: "seed"});
   const specAll = h("input", {type: "checkbox"});
   const hpBox = h("div", {class: "row", style: {alignItems: "center"}});
   const hpDraw = () => {
@@ -2002,7 +2001,7 @@ function openSetup() {
     const humans = st.ranked === "ranked" ? Array.from({length: st.n}, (_, i) => i) : [...seatBox.querySelectorAll("input[type=checkbox]")].map((x, i) => x.checked ? i : -1).filter(i => i >= 0);   // 段位模式: 全部座位開放,開始後再選參戰 / 觀戰
     S.baseSeat = null; S.logN = 0; S.thN = 0; S.thoughts = []; S.lastTh = {}; S.sel = null; S.picked = null; S.pendId = 0;
     $("#log").textContent = ""; $("#thl").textContent = "";
-    await api("/api/new", {players: st.n, human: st.human, humans, chars, variant: st.variant, lord: st.lord, mode: st.mode, role_mode: st.n < 4 ? "none" : st.rm, base_hp: st.hp, ranked: st.ranked === "ranked", spec_all: st.ranked !== "ranked" && specAll.checked, difficulty: st.diff, diffs, seed: seed.value, speed: +speed.value});
+    await api("/api/new", {players: st.n, human: st.human, humans, chars, variant: st.variant, lord: st.lord, mode: st.mode, role_mode: st.n < 4 ? "none" : st.rm, base_hp: st.hp, ranked: st.ranked === "ranked", spec_all: st.ranked !== "ranked" && specAll.checked, difficulty: st.diff, diffs, seed: "", speed: +speed.value});
     $("#speed").value = speed.value; $("#speedv").textContent = (+speed.value).toFixed(2) + "s";
     M.textContent = ""; S.modalOpen = null; poll(true);
   };
@@ -2020,7 +2019,6 @@ function openSetup() {
       sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變)", modeBox),
       sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限", rmBox),
       sect("進階", "", h("div", {class: "adv"},
-        h("label", {class: "fld"}, h("span", {text: "亂數種子"}), seed),
         h("label", {class: "fld", title: "打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)"}, h("span", {text: "旁觀者可看全部身分 / 手牌"}), specAll),
         h("label", {class: "fld"}, h("span", {text: "每步長度 (秒,0.05 = 最快)"}), h("div", {class: "rng"}, speed, speedV)))),
       sect("座位與武將", "留「隨機武將」會從 " + roster.length + " 位武將中抽,不重複;勾「開放玩家」讓玩家入座。段位模式: 武將全部隨機,座位全部開放,按下開始後想打的人按「參戰」,沒按的自動觀戰,沒人坐的座位由電腦擔任", h("div", {}, openAll, seatBox))),

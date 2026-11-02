@@ -286,8 +286,8 @@ def snapshot(m, viewer, since_log, since_th, peek):
     # 有真人座位時,沒坐位的人 (旁觀者) 只能看公開資訊,不能全知
     dead = viewer is not None and 0 <= viewer < len(g.players) and not g.players[viewer].alive
     cfg_ = m.cfg or {}
-    spec_all = viewer is None and bool(cfg_.get("spec_all")) and not cfg_.get("ranked")   # 房主開了「旁觀者可看全部」(只有休閒模式)
-    show_all = (viewer is None and not m.humans) or (dead and not cfg_.get("ranked")) or spec_all   # 已陣亡的真人: 當作觀戰者,可看全部身分 / 手牌 / AI 思考 (段位模式除外,避免洩漏給還在打的人)
+    spec_all = (viewer is None or dead) and bool(cfg_.get("spec_all")) and not cfg_.get("ranked")   # 房主開了「旁觀者可看全部」(只有休閒模式);已陣亡的真人也算旁觀者
+    show_all = (viewer is None and not m.humans) or spec_all   # 沒開這個選項時,旁觀者 / 陣亡的人只能看公開資訊
     spectator = viewer is None or dead
     if spectator and not show_all:
         viewer = -1
