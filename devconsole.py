@@ -137,7 +137,13 @@ def api(ctx, tok, d):
             if kw and kw not in k and kw not in a["user"].lower() and kw != str(p.get("uid")):
                 continue
             rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rank": P.rank_tag(p), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "tag": P.dev(a["uuid"]) or "", "online": bool(S.is_online(k))})
-        rows.sort(key=lambda r: r["user"].lower())
+        by = str(d.get("sort") or "online")   # online: 在線的排前面,再依段位;rank: 段位高到低;name: 名稱
+        if by == "rank":
+            rows.sort(key=lambda r: (-r["rp"], r["user"].lower()))
+        elif by == "name":
+            rows.sort(key=lambda r: r["user"].lower())
+        else:
+            rows.sort(key=lambda r: (not r["online"], -r["rp"], r["user"].lower()))
         return {"ok": True, "players": rows[:200], "total": len(rows)}
     if act == "rooms":
         with ctx["ROOMS_LOCK"]:

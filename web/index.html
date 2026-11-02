@@ -2780,14 +2780,14 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
   const put = (parent, ...kids) => kids.flat(Infinity).forEach(c => c != null && c !== "" && parent.append(c));   // 原生 append 不會展開陣列
   const call = async body => { try { return await (await fetch("/api/dev", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ tok: TOK }, body)) })).json(); } catch (e) { return { ok: false, error: "連線失敗" }; } };
   const KINDS = [["frames", "頭像框"], ["fx", "頭像特效"], ["themes", "主題"], ["boxes", "玩家框"], ["cardbgs", "卡面"], ["cardbacks", "牌背"]];
-  let root = null, cat = null, cur = null, sel = null, sub = "info", tab = "p", q = "";
+  let root = null, cat = null, cur = null, sel = null, sub = "info", tab = "p", q = "", sortBy = "online";
   const css = `#devgui{position:fixed;inset:0;z-index:9990;display:none;background:rgba(0,0,0,.55);align-items:flex-start;justify-content:center;padding-top:50px}
 #devgui .dg{width:min(980px,96vw);height:min(640px,88vh);display:flex;flex-direction:column;background:#14161a;border:1px solid #c3ccd8;border-radius:8px;color:#dfe5ec;font-size:13px;box-shadow:0 8px 30px #000}
 #devgui .dh{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid #3a4048}#devgui .dh b{color:#c3ccd8;flex:1}
 #devgui button{background:#232830;color:#dfe5ec;border:1px solid #4a525d;border-radius:4px;padding:4px 10px;cursor:pointer;font:inherit}#devgui button:hover{background:#323944}#devgui button.on{background:#c3ccd8;color:#14161a;font-weight:700}#devgui button.bad{border-color:#e23a3a;color:#ff8a8a}
 #devgui input{background:#0d0f12;color:#fff;border:1px solid #4a525d;border-radius:4px;padding:5px 8px;font:inherit;font-size:14px;min-width:0}
 #devgui .db{flex:1;display:flex;min-height:0}#devgui .dl{width:250px;border-right:1px solid #3a4048;display:flex;flex-direction:column;padding:8px;gap:6px}#devgui .dlist{flex:1;overflow:auto}
-#devgui .pr{padding:5px 6px;border-radius:4px;cursor:pointer;display:flex;gap:6px;align-items:baseline}#devgui .pr:hover{background:#232830}#devgui .pr.on{background:#323944}#devgui .pr small{color:#8b95a1;margin-left:auto}
+#devgui .pr{padding:5px 6px;border-radius:4px;cursor:pointer;display:flex;gap:6px;align-items:baseline}#devgui .pr:hover{background:#232830}#devgui .pr.on{background:#323944}#devgui .pr .rk{font-size:13px;padding:1px 0;min-width:56px;text-align:center;border-radius:6px;line-height:1.55;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}#devgui .pr small{color:#8b95a1;margin-left:auto}
 #devgui .dr{flex:1;overflow:auto;padding:10px 14px;min-width:0}#devgui .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:5px 0}
 #devgui .tag{background:#7a3cff;color:#fff;border-radius:3px;padding:0 6px;font-size:11px}#devgui .tag.t{background:#f5c518;color:#2b2200}
 #devgui .it{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid #232830}#devgui .it span.n{flex:1}#devgui .st{font-size:11px;padding:0 6px;border-radius:3px}
@@ -2818,11 +2818,12 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
   async function drawPlayers() {
     const lst = E("div", { class: "dlist" }), side = E("div", { class: "dl" }), det = E("div", { class: "dr" });
     const si = E("input", { placeholder: "搜尋帳號 / UID", value: q });
-    side.append(si, lst);
+    const so = E("select", { style: "width:100%;margin-bottom:6px", onchange: () => { sortBy = so.value; fill(); } }, [["online", "排序: 在線優先,再依段位"], ["rank", "排序: 段位高到低"], ["name", "排序: 名稱"]].map(([v, n]) => E("option", { value: v, text: n, selected: v === sortBy })));
+    side.append(si, so, lst);
     const fill = async () => {
-      const r = await call({ a: "players", q }), st = lst.scrollTop; lst.textContent = "";
+      const r = await call({ a: "players", q, sort: sortBy }), st = lst.scrollTop; lst.textContent = "";
       (r.players || []).forEach(p => lst.append(E("div", { class: "pr" + (sel === p.key ? " on" : ""), onclick: async () => { sel = p.key; const d = await call({ a: "detail", key: p.key }); cur = d.ok ? d : null; draw(); } },
-        E("span", { class: "od" + (p.online ? "" : " off"), title: p.online ? "在線" : "離線" }), p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", { text: p.rank }))));
+        E("span", { class: "od" + (p.online ? "" : " off"), title: p.online ? "在線" : "離線" }), p.user, p.tag ? E("span", { class: "tag" + (p.tag === "tester" ? " t" : ""), text: p.tag === "tester" ? "測試者" : "開發者" }) : "", E("small", {}, rkEl(p.rank)))));
       lst.scrollTop = st;
       if (r.total > (r.players || []).length) lst.append(E("div", { style: "color:#8b95a1;padding:4px", text: "… 共 " + r.total + " 個,請搜尋" }));
     };
