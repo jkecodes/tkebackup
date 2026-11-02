@@ -452,8 +452,8 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
 .fr-crystal{box-shadow:0 0 8px rgba(200,220,255,.85)}
 .avw.fr-galaxy::before{background:radial-gradient(circle at 20% 25%,#fff 0 1px,transparent 2px),radial-gradient(circle at 75% 20%,#fff 0 1px,transparent 2px),radial-gradient(circle at 60% 80%,#cfe 0 1px,transparent 2px),radial-gradient(circle at 15% 70%,#fff 0 1px,transparent 2px),linear-gradient(135deg,#1a0f4a,#6a2bd1 50%,#0a1a5a);animation:frtw 2.2s ease-in-out infinite alternate}
 .fr-galaxy{box-shadow:0 0 8px rgba(120,90,255,.8)}
-.avw.fr-heartbeat::before{background:linear-gradient(135deg,#ffc2d9,#ff2e63 50%,#ffc2d9);animation:frtw .9s ease-in-out infinite alternate}
-.fr-heartbeat{box-shadow:0 0 9px rgba(255,60,110,.85)}
+.avw.fr-spring::before{background:linear-gradient(135deg,#c6ffd9,#2ee6a0 50%,#ffc2d9);animation:frtw .9s ease-in-out infinite alternate}
+.fr-spring{box-shadow:0 0 9px rgba(70,230,160,.8)}
 .avw.fr-lava::before{background:linear-gradient(100deg,#1a0500,#ff4a00,#ffcf3a,#ff4a00,#1a0500,#ff4a00);background-size:300% 100%;animation:frwave 2.6s linear infinite}
 .fr-lava{box-shadow:0 0 9px rgba(255,90,0,.85)}
 .avw.fr-yinyang::before{background:conic-gradient(#fff 0 50%,#000 50% 100%);animation:frspin 6s linear infinite}

@@ -39,7 +39,7 @@ window.SGS_LOG_TPL = (window.SGS_LOG_TPL || []).concat([
 ["四方通達", "All Roles Mastered", "四方通達"], ["博覽群雄", "Many Heroes", "群雄博覧"], ["天下英雄", "Heroes of the Realm", "天下の英雄"],
 ["一將成名", "Making a Name", "一将成名"], ["資深玩家", "Veteran Player", "ベテランプレイヤー"], ["黃金之路", "Road to Gold", "ゴールドへの道"],
 ["鑽石之光", "Diamond Glow", "ダイヤの輝き"], ["名留青史", "Name in History", "青史に名を残す"], ["絕地求生", "Survivor", "絶体絶命"],
-["閃電戰", "Blitz", "電撃戦"], ["十雄爭霸", "Ten Heroes", "十雄覇権"], ["毀天滅地", "Total Destruction", "天地滅却"], ["起死回生", "Back from the Brink", "起死回生"], ["心動框", "Heartbeat frame", "ときめきフレーム"], ["單場回復 32 點以上體力 (獎勵: 心動框)", "Restore 32+ HP in one game (reward: Heartbeat frame)", "1局で体力を32点以上回復(報酬: ときめきフレーム)"],
+["閃電戰", "Blitz", "電撃戦"], ["十雄爭霸", "Ten Heroes", "十雄覇権"], ["毀天滅地", "Total Destruction", "天地滅却"], ["起死回生", "Back from the Brink", "起死回生"], ["回春框", "Spring Revival frame", "回春フレーム"], ["單場回復 32 點以上體力 (獎勵: 回春框)", "Restore 32+ HP in one game (reward: Spring Revival frame)", "1局で体力を32点以上回復(報酬: 回春フレーム)"],
 ["君子動口不動手", "Talk, Don't Fight", "君子は口を動かし手を動かさず"], ["死而後勝", "Win After Death", "死して勝つ"],
 ["手牌收藏家", "Card Collector", "手札コレクター"], ["連鎖大師", "Chain Master", "チェーンマスター"], ["易容大師", "Master of Disguise", "変装の達人"],
 ["千人一面", "A Thousand Same Faces", "千人一面"],

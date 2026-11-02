@@ -43,7 +43,7 @@ ACHIEVEMENTS = [
     ("clutch", "絕地求生", "以 1 點體力存活並獲勝", lambda p, lv, pt, f: bool(f.get("won") and f.get("alive") and f.get("hp") == 1)),
     ("speed", "閃電戰", "在第 1 輪內獲勝", lambda p, lv, pt, f: bool(f.get("won") and 0 < f.get("rounds", 99) <= 1)),
     ("ten_free", "十雄爭霸", "在十人無身分模式下獲勝", lambda p, lv, pt, f: bool(f.get("won") and f.get("n") == 10 and f.get("noroles"))),
-    ("heal32", "起死回生", "單場回復 32 點以上體力 (獎勵: 心動框)", lambda p, lv, pt, f: f.get("heal", 0) >= 32),
+    ("heal32", "起死回生", "單場回復 32 點以上體力 (獎勵: 回春框)", lambda p, lv, pt, f: f.get("heal", 0) >= 32),
     ("dmg32", "毀天滅地", "單場對其他玩家打出 32 點以上傷害", lambda p, lv, pt, f: f.get("dmg", 0) >= 32),
     ("no_sha", "君子動口不動手", "整場沒有使用或打出過殺,卻贏得勝利", lambda p, lv, pt, f: bool(f.get("won") and f.get("sha", 1) == 0)),
     ("comeback", "死而後勝", "先陣亡,但最後取得勝利", lambda p, lv, pt, f: bool(f.get("won") and not f.get("alive", True))),
@@ -138,7 +138,7 @@ FRAMES = [
     {"id": "crystal", "n": "水晶框", "req": A("no_sha")},
     {"id": "galaxy", "n": "星空框", "req": A("hand20")},
     {"id": "lava", "n": "熔岩框", "req": A("clutch")},
-    {"id": "heartbeat", "n": "心動框", "req": A("heal32")},
+    {"id": "spring", "n": "回春框", "req": A("heal32")},
     {"id": "yinyang", "n": "陰陽框", "req": A("clones")},
     {"id": "pres1", "n": "轉生 1 框", "req": A("prestige1")},
     {"id": "pres2", "n": "轉生 2 框", "req": P(2)},
@@ -205,7 +205,7 @@ ACH_REWARD = {
     "streak3": ("themes", "sakura"), "streak5": ("fx", "bolt"), "ranked1": ("fx", "heart"), "ranked10": ("frames", "jade"),
     "ranked30": ("fx", "ripple"), "ranked100": ("fx", "pulse"), "roles4": ("themes", "gold"), "chars10": ("fx", "meteor"),
     "chars30": ("frames", "coll"), "no_sha": ("frames", "crystal"), "tier_gold": ("fx", "radar"), "tier_dia": ("themes", "royal"),
-    "tier_legend": ("fx", "beam"), "hand20": ("frames", "galaxy"), "chain11": ("fx", "dust"), "heal32": ("frames", "heartbeat"),
+    "tier_legend": ("fx", "beam"), "hand20": ("frames", "galaxy"), "chain11": ("fx", "dust"), "heal32": ("frames", "spring"),
 }
 _HARD = {"tier_legend", "ranked100", "chars30", "tier_dia", "ten_free", "hand20", "chain11", "clones", "clutch"}
 _MID = {"games100", "wins25", "streak5", "ranked30", "roles4", "tier_gold", "no_sha", "main10", "ranked10", "games50", "dmg32", "speed", "comeback", "wei5"}
