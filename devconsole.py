@@ -136,14 +136,14 @@ def api(ctx, tok, d):
             p = P.d.get(a["uuid"], {})
             if kw and kw not in k and kw not in a["user"].lower() and kw != str(p.get("uid")):
                 continue
-            rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rank": P.rank_tag(p), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "tag": P.dev(a["uuid"]) or "", "online": bool(S.is_online(k))})
-        by = str(d.get("sort") or "online")   # online: 在線的排前面,再依段位;rank: 段位高到低;name: 名稱
+            rows.append({"key": k, "user": a["user"], "uid": p.get("uid"), "lv": P.level(p.get("xp", 0)), "rank": P.rank_tag(p), "rp": p.get("rp", 0), "coins": p.get("coins", 0), "pres": p.get("pres", 0), "tag": P.dev(a["uuid"]) or "", "online": bool(S.is_online(k))})
+        by = str(d.get("sort") or "online")   # online: 在線的排前面,再依轉生次數 / 積分;rank: 轉生次數 + 積分高到低;name: 名稱
         if by == "rank":
-            rows.sort(key=lambda r: (-r["rp"], r["user"].lower()))
+            rows.sort(key=lambda r: (-r["pres"], -r["rp"], r["user"].lower()))   # 轉生次數先比,再比積分
         elif by == "name":
             rows.sort(key=lambda r: r["user"].lower())
         else:
-            rows.sort(key=lambda r: (not r["online"], -r["rp"], r["user"].lower()))
+            rows.sort(key=lambda r: (not r["online"], -r["pres"], -r["rp"], r["user"].lower()))
         return {"ok": True, "players": rows[:200], "total": len(rows)}
     if act == "rooms":
         with ctx["ROOMS_LOCK"]:
@@ -209,6 +209,16 @@ def api(ctx, tok, d):
         with P.lock:
             p["rp"] = n
             p["peak_rp"] = n if d.get("peak") else max(p.get("peak_rp", 0), n)   # 外觀 / 成就看歷史最高,預設只往上加
+            P._save()
+    elif act == "pres":
+        try:
+            n = int(d.get("n"))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "請輸入整數"}
+        if not 0 <= n <= 99:
+            return {"ok": False, "error": "轉生次數要在 0 ~ 99"}
+        with P.lock:
+            p["pres"] = n
             P._save()
     elif act == "uid":
         import random
