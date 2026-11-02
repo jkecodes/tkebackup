@@ -1,6 +1,6 @@
 {
   "name": "sgs-sim",
-  "productName": "進化三國",
+  "productName": "Three Kingdoms Evolution",
   "version": "1.11.3",
   "description": "進化三國模擬器 (桌面版)",
   "main": "main.js",
@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.sgs.sim",
-    "productName": "進化三國",
+    "productName": "Three Kingdoms Evolution",
     "files": [
       "main.js",
       "preload.js",

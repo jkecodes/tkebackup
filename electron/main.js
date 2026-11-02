@@ -5,7 +5,8 @@ const path = require("path");
 const fs = require("fs");
 const net = require("net");
 
-let server = null, win = null, port = 8765, lan = false, quitting = false, remote = null;
+app.setPath("userData", path.join(app.getPath("appData"), "進化三國"));   // 程式改名後資料夾仍沿用舊的 (玩家資料 / 設定不會不見)
+let server = null, win = null, port = 8765, quitting = false, remote = null;
 
 function cfgPath() { return path.join(app.getPath("userData"), "desktop.json"); }
 function loadCfg() { try { return JSON.parse(fs.readFileSync(cfgPath(), "utf8")); } catch (e) { return {}; } }
@@ -36,8 +37,8 @@ function openConnectDialog() {
   ipcMain.handle("sgs:connect", async (_e, raw) => {
     const url = normalizeUrl(raw);
     if (!url) return "網址格式不對";
-    if (!(await probe(url))) return "連不上這個伺服器 (請確認網址、同一個網路,以及主機已開啟區網模式)";
-    saveCfg({ lastServer: raw.trim(), autoConnect: true });   // 下次開啟自動連線
+    if (!(await probe(url))) return "連不上這個伺服器 (請確認網址和網路連線)";
+    saveCfg({ lastServer: raw.trim(), autoConnect: true, useLocal: false });   // 下次開啟自動連線
     remote = url; stopServer();
     await win.loadURL(url);
     Menu.setApplicationMenu(buildMenu());
@@ -48,8 +49,16 @@ function openConnectDialog() {
   d.on("closed", done);
 }
 
+async function connectCloud() {
+  if (!(await probe(SITE_URL))) { dialog.showMessageBox(win, { message: "連不上雲端伺服器", detail: "請確認網路連線,稍後再試。" }); return; }
+  saveCfg({ lastServer: SITE_URL, autoConnect: true, useLocal: false });
+  remote = SITE_URL; stopServer();
+  await win.loadURL(SITE_URL);
+  Menu.setApplicationMenu(buildMenu());
+}
+
 async function backToLocal() {
-  saveCfg({ autoConnect: false });
+  saveCfg({ autoConnect: false, useLocal: true });
   remote = null; stopServer(); startServer();
   try { await waitReady(); await win.loadURL("http://127.0.0.1:" + port + "/"); } catch (e) {}
   Menu.setApplicationMenu(buildMenu());
@@ -95,30 +104,35 @@ async function readPresence() {   // 從遊戲頁面讀目前狀態 (只讀畫�
     return await win.webContents.executeJavaScript(`(() => { try {
       const on = id => { const e = document.getElementById(id); return !!(e && e.classList.contains("on")); };
       const s = (typeof S !== "undefined" && S.snap) || null, chip = document.getElementById("bProf");
-      return { auth: on("auth"), lobby: on("rooms"), inGame: !!(s && s.round && !s.lobby), over: !!(s && s.over), spectator: !!(s && s.viewer == null), round: s ? s.round : 0, ranked: !!(s && s.ranked), gmode: s ? s.gmode : "", rmode: s ? s.rmode : "", rank: chip ? chip.textContent.trim() : "", name: (typeof S !== "undefined" && S.user) || (typeof myNick === "function" ? myNick() : ""), avatar: (typeof S !== "undefined" && S.prof && S.prof.avatar) || "", origin: location.origin };
+      return { auth: on("auth"), lobby: on("rooms"), inGame: !!(s && s.round && !s.lobby), over: !!(s && s.over), spectator: !!(s && s.viewer == null), round: s ? s.round : 0, ranked: !!(s && s.ranked), gmode: s ? s.gmode : "", rmode: s ? s.rmode : "", rank: chip ? chip.textContent.trim() : "", name: (typeof S !== "undefined" && S.user) || (typeof myNick === "function" ? myNick() : ""), avatar: (typeof S !== "undefined" && S.prof && S.prof.avatar) || "", origin: location.origin, lang: (typeof lang !== "undefined" && lang) || (() => { try { return localStorage.getItem("sgs_lang"); } catch (e) { return ""; } })() || "zh" };
     } catch (e) { return null; } })()`);
   } catch (e) { return null; }
 }
 
-const RM_NAME = { none: "無身分", open: "身分全公開", hidden: "主公不公開" };
+const TX = {   // Rich Presence 的文字: 跟著遊戲裡的語言設定 (zh / en / ja)
+  zh: { idle: "閒置中", fight: "對戰中", watch: "觀戰中", round: n => "第 " + n + " 輪", player: "", ranked: "段位模式", casual: "休閒模式", shuffle: "百變", none: "無身分", open: "身分全公開", hidden: "主公不公開", auth: "登入中", lobby: "在大廳", over: "對局結束", room: "在房間等待開局" },
+  en: { idle: "Idle", fight: "In match", watch: "Spectating", round: n => "Round " + n, player: "", ranked: "Ranked", casual: "Casual", shuffle: "Shuffle", none: "No roles", open: "Open roles", hidden: "Hidden lord", auth: "Signing in", lobby: "In lobby", over: "Match over", room: "Waiting in room" },
+  ja: { idle: "待機中", fight: "対戦中", watch: "観戦中", round: n => "第" + n + "巡", player: "", ranked: "ランクモード", casual: "カジュアル", shuffle: "シャッフル", none: "役職なし", open: "役職公開", hidden: "主公非公開", auth: "ログイン中", lobby: "ロビー", over: "対局終了", room: "ルームで開始待ち" },
+};
 async function updatePresence() {
   if (!rpcOk || !rpc || !rpc.user) return;
   const st = await readPresence();
-  const who = st && st.name ? "玩家 " + st.name : "";   // 玩家名字一律寫在第二行最前面
-  let details = "閒置中", state = "";   // 閒置中 = 沒在打牌 (大廳 / 登入 / 房間等開局)
+  const T = TX[st && st.lang] || TX.zh;
+  const who = st && st.name ? T.player + st.name : "";   // 玩家名字一律寫在第二行最前面
+  let details = T.idle, state = "";   // 閒置中 = 沒在打牌 (大廳 / 登入 / 房間等開局)
   if (st) {
     if (st.inGame && !st.over) {   // 對戰中 / 觀戰中: 下一行寫現在在打什麼模式
-      details = (st.spectator ? "觀戰中" : "對戰中") + " · 第 " + st.round + " 輪";
-      state = [who, st.ranked ? "段位模式" : "休閒模式", st.gmode === "shuffle" ? "百變" : "", RM_NAME[st.rmode] || ""].filter(Boolean).join(" · ");
+      details = (st.spectator ? T.watch : T.fight) + " · " + T.round(st.round);
+      state = [who, st.ranked ? T.ranked : T.casual, st.gmode === "shuffle" ? T.shuffle : "", T[st.rmode] || ""].filter(Boolean).join(" · ");
     } else {
-      state = st.auth ? "登入中" : st.lobby ? "在大廳" : st.inGame ? "對局結束" : "在房間等待開局";
+      state = st.auth ? T.auth : st.lobby ? T.lobby : st.inGame ? T.over : T.room;
       state = [who, state, st.rank].filter(Boolean).join(" · ");
     }
   }
   // 小圖: 玩家自己上傳的頭貼 (Discord 要從網路抓圖,所以只有連到 https 伺服器時才放;本機 127.0.0.1 的抓不到)
   const av = st && st.avatar && /^https:\/\//.test(st.origin || "") ? st.origin + st.avatar : "";
   try {
-    await rpc.user.setActivity({ details, state: state || undefined, startTimestamp: rpcStart, largeImageKey: SITE_URL + "icons/icon-512.png", largeImageText: "進化三國 Three Kingdoms Evolution", ...(av ? { smallImageKey: av, smallImageText: st.name || "玩家" } : {}),
+    await rpc.user.setActivity({ details, state: state || undefined, startTimestamp: rpcStart, largeImageKey: SITE_URL + "icons/icon-512.png", largeImageText: "Three Kingdoms Evolution", ...(av ? { smallImageKey: av, smallImageText: st.name || "Player" } : {}),
       buttons: [{ label: "Play the game", url: SITE_URL }, { label: "Discord server", url: DISCORD_URL }] });
   } catch (e) { rpcOk = false; }
 }
@@ -160,7 +174,7 @@ function assetsDir() {
 
 function startServer() {
   const env = { ...process.env, SGS_PORT: String(port), SGS_DATA: app.getPath("userData"), SGS_ASSETS: assetsDir(), PYTHONUTF8: "1" };
-  const args = ["--no-browser"].concat(lan ? ["--lan"] : []);
+  const args = ["--no-browser"];
   if (app.isPackaged) {
     const exe = path.join(process.resourcesPath, "server", process.platform === "win32" ? "sgs-server.exe" : "sgs-server");
     server = spawn(exe, args, { env, windowsHide: true });
@@ -198,14 +212,9 @@ function buildMenu() {
     { label: "遊戲", submenu: [
       { label: "重新載入", accelerator: "CmdOrCtrl+R", click: () => win && win.reload() },
       { label: "全螢幕", accelerator: "F11", role: "togglefullscreen" },
+      ...(remote !== SITE_URL ? [{ label: "連線到雲端伺服器 (官方)", click: connectCloud }] : []),
       { label: "連線到朋友的伺服器…", click: openConnectDialog },
       ...(remote ? [{ label: "← 回到本機 (離開 " + remote.replace(/^https?:\/\//, "").replace(/\/$/, "") + ")", click: backToLocal }] : []),
-      { label: lan ? "✔ 區網模式 (朋友可連線)" : "區網模式 (讓朋友連線)", enabled: !remote, click: async () => {
-          lan = !lan; stopServer(); startServer();
-          try { await waitReady(); win && win.reload(); } catch (e) {}
-          if (lan) dialog.showMessageBox(win, { message: "區網模式已開啟", detail: "朋友用瀏覽器開 http://<你的區網 IP>:" + port + "/ 即可加入。\nWindows 防火牆若詢問,請允許私人網路。" });
-          Menu.setApplicationMenu(buildMenu());
-        } },
       { type: "separator" },
       { label: "開啟素材資料夾 (放卡牌 / 武將圖片)", click: () => shell.openPath(assetsDir()) },
       { label: "開啟玩家資料夾", click: () => shell.openPath(app.getPath("userData")) },
@@ -226,12 +235,12 @@ ipcMain.handle("sgs:presence-set", (_e, on) => { saveCfg({ discordRpc: !!on }); 
 async function createWindow() {
   port = await freePort(8765);
   const cfg = loadCfg();
-  if (cfg.autoConnect && cfg.lastServer) {   // 上次選了連線到某個伺服器: 開啟就直接連 (連不上才退回本機)
-    const url = normalizeUrl(cfg.lastServer);
+  if (cfg.useLocal !== true) {   // 預設連雲端伺服器 (看得到雲端的房間);選過「回到本機」才用內建的本機伺服器。上次連的是別台就連那台,連不上就退回本機
+    const url = normalizeUrl(cfg.autoConnect && cfg.lastServer ? cfg.lastServer : SITE_URL);
     if (url && await probe(url)) remote = url;
   }
   if (!remote) startServer();
-  win = new BrowserWindow({ width: 1280, height: 860, title: "進化三國", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0e0f11", webPreferences: { preload: path.join(__dirname, "preload-main.js"), contextIsolation: true } });
+  win = new BrowserWindow({ width: 1280, height: 860, title: "Three Kingdoms Evolution", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0e0f11", webPreferences: { preload: path.join(__dirname, "preload-main.js"), contextIsolation: true } });
   Menu.setApplicationMenu(buildMenu());
   win.webContents.on("before-input-event", (e, input) => {   // F11 全螢幕 (選單被隱藏時快捷鍵也要能用)
     if (input.type === "keyDown" && input.key === "F11") { e.preventDefault(); win.setFullScreen(!win.isFullScreen()); }

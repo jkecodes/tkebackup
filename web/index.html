@@ -2183,6 +2183,12 @@ function renderPicking(snap) {   // 隨機武將: 每人抽 3 張選 1,大家同
   dlg.append(h("div", {style: {marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap"}}, inviteFriendsBtn(), backBtn()));
   M.append(h("div", {class: "modal"}, dlg));
 }
+document.addEventListener("wheel", e => {   // 牌桌中間的牌堆 (亮牌 / 棄牌堆等) 太長捲得動時,滑鼠滾輪也能左右移動
+  const st = e.target.closest && e.target.closest(".pstack");
+  if (!st || st.scrollWidth <= st.clientWidth) return;
+  const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+  st.scrollLeft += d; e.preventDefault();
+}, {passive: false});
 function renderRankedLobby(snap) {   // 段位模式大廳: 每個人只能選「參戰」或「觀戰」
   const M = $("#modal"); M.textContent = "";
   $("#status").textContent = "段位模式: 想打的人按參戰";
