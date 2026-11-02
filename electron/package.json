@@ -1,7 +1,7 @@
 {
   "name": "sgs-sim",
   "productName": "進化三國",
-  "version": "1.9.0",
+  "version": "1.10.2",
   "description": "進化三國模擬器 (桌面版)",
   "main": "main.js",
   "private": true,
@@ -16,11 +16,47 @@
   "build": {
     "appId": "com.sgs.sim",
     "productName": "進化三國",
-    "files": ["main.js", "preload.js", "connect.html", "package.json"],
-    "extraResources": [{ "from": "../dist/sgs-server", "to": "server" }],
-    "directories": { "output": "release" },
-    "win": { "target": ["nsis", "zip"] },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": false, "perMachine": false, "deleteAppDataOnUninstall": false },
-    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.games", "identity": null }
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-main.js",
+      "connect.html",
+      "package.json",
+      "icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/sgs-server",
+        "to": "server"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": true,
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "${productName} ${version}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.games",
+      "identity": null
+    },
+    "icon": "icon.png"
+  },
+  "dependencies": {
+    "@xhayper/discord-rpc": "^1.3.0"
   }
 }

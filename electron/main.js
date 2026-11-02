@@ -83,6 +83,67 @@ async function checkUpdate(manual) {
   else if (r.response === 2) saveCfg({ skipVersion: tag });
 }
 
+// ---------- Discord Rich Presence: 在 Discord 顯示「進化三國」目前在大廳 / 對戰 / 觀戰 (沒開 Discord 或沒設 Application ID 就什麼都不做) ----------
+const DISCORD_APP_ID = process.env.SGS_DISCORD_APP_ID || "1566752297814331423";   // Discord 開發者後台建的 Application ID (不是密碼)
+const SITE_URL = "https://161.33.203.60.sslip.io/";            // 第一個按鈕「Play the game」連到網站版
+const DISCORD_URL = "https://discord.gg/e6f24U3T68";           // 第二個按鈕連到官方 Discord 伺服器            // 「Play the game」按鈕連到網站版
+let rpc = null, rpcOk = false, rpcStart = Date.now(), rpcTimer = null;
+
+async function readPresence() {   // 從遊戲頁面讀目前狀態 (只讀畫面上的資料;房間名稱不顯示)
+  if (!win || win.isDestroyed()) return null;
+  try {
+    return await win.webContents.executeJavaScript(`(() => { try {
+      const on = id => { const e = document.getElementById(id); return !!(e && e.classList.contains("on")); };
+      const s = (typeof S !== "undefined" && S.snap) || null, chip = document.getElementById("bProf");
+      return { auth: on("auth"), lobby: on("rooms"), inGame: !!(s && s.round && !s.lobby), over: !!(s && s.over), spectator: !!(s && s.viewer == null), round: s ? s.round : 0, ranked: !!(s && s.ranked), gmode: s ? s.gmode : "", rmode: s ? s.rmode : "", rank: chip ? chip.textContent.trim() : "", name: (typeof S !== "undefined" && S.user) || (typeof myNick === "function" ? myNick() : ""), avatar: (typeof S !== "undefined" && S.prof && S.prof.avatar) || "", origin: location.origin };
+    } catch (e) { return null; } })()`);
+  } catch (e) { return null; }
+}
+
+const RM_NAME = { none: "無身分", open: "身分全公開", hidden: "主公不公開" };
+async function updatePresence() {
+  if (!rpcOk || !rpc || !rpc.user) return;
+  const st = await readPresence();
+  const who = st && st.name ? "玩家 " + st.name : "";   // 玩家名字一律寫在第二行最前面
+  let details = "閒置中", state = "";   // 閒置中 = 沒在打牌 (大廳 / 登入 / 房間等開局)
+  if (st) {
+    if (st.inGame && !st.over) {   // 對戰中 / 觀戰中: 下一行寫現在在打什麼模式
+      details = (st.spectator ? "觀戰中" : "對戰中") + " · 第 " + st.round + " 輪";
+      state = [who, st.ranked ? "段位模式" : "休閒模式", st.gmode === "shuffle" ? "百變" : "", RM_NAME[st.rmode] || ""].filter(Boolean).join(" · ");
+    } else {
+      state = st.auth ? "登入中" : st.lobby ? "在大廳" : st.inGame ? "對局結束" : "在房間等待開局";
+      state = [who, state, st.rank].filter(Boolean).join(" · ");
+    }
+  }
+  // 小圖: 玩家自己上傳的頭貼 (Discord 要從網路抓圖,所以只有連到 https 伺服器時才放;本機 127.0.0.1 的抓不到)
+  const av = st && st.avatar && /^https:\/\//.test(st.origin || "") ? st.origin + st.avatar : "";
+  try {
+    await rpc.user.setActivity({ details, state: state || undefined, startTimestamp: rpcStart, largeImageKey: SITE_URL + "icons/icon-512.png", largeImageText: "進化三國 Three Kingdoms Evolution", ...(av ? { smallImageKey: av, smallImageText: st.name || "玩家" } : {}),
+      buttons: [{ label: "Play the game", url: SITE_URL }, { label: "Discord server", url: DISCORD_URL }] });
+  } catch (e) { rpcOk = false; }
+}
+
+function stopPresence() {
+  if (rpcTimer) { clearInterval(rpcTimer); rpcTimer = null; }
+  if (rpc) { try { rpc.user && rpc.user.clearActivity(); } catch (e) {} try { rpc.destroy(); } catch (e) {} }
+  rpc = null; rpcOk = false;
+}
+
+async function startPresence() {
+  if (!DISCORD_APP_ID || rpcTimer || loadCfg().discordRpc === false) return;   // 設定裡可以關 (預設開)
+  let Client; try { ({ Client } = require("@xhayper/discord-rpc")); } catch (e) { return; }
+  const connect = async () => {
+    if (rpcOk || quitting) return;
+    try {
+      rpc = new Client({ clientId: DISCORD_APP_ID });
+      rpc.on("disconnected", () => { rpcOk = false; });
+      await rpc.login(); rpcOk = true; updatePresence();
+    } catch (e) { rpcOk = false; try { rpc && rpc.destroy(); } catch (e2) {} }   // Discord 沒開: 之後每 30 秒再試
+  };
+  connect();
+  rpcTimer = setInterval(() => { if (!rpcOk) connect(); else updatePresence(); }, 15000);
+}
+
 function freePort(pref) {
   return new Promise(resolve => {
     const s = net.createServer();
@@ -141,6 +202,7 @@ function buildMenu() {
       { type: "separator" },
       { label: "開啟素材資料夾 (放卡牌 / 武將圖片)", click: () => shell.openPath(assetsDir()) },
       { label: "開啟玩家資料夾", click: () => shell.openPath(app.getPath("userData")) },
+      { label: "Discord 狀態顯示 (Rich Presence)", type: "checkbox", checked: loadCfg().discordRpc !== false, click: m => { saveCfg({ discordRpc: m.checked }); if (m.checked) startPresence(); else stopPresence(); } },
       { label: "檢查更新…", click: () => checkUpdate(true) },
       { type: "separator" },
       { role: process.platform === "darwin" ? "close" : "quit", label: "結束" },
@@ -151,6 +213,9 @@ function buildMenu() {
   return Menu.buildFromTemplate(t);
 }
 
+ipcMain.handle("sgs:presence-get", () => ({ on: loadCfg().discordRpc !== false, available: !!DISCORD_APP_ID }));
+ipcMain.handle("sgs:presence-set", (_e, on) => { saveCfg({ discordRpc: !!on }); if (on) startPresence(); else stopPresence(); Menu.setApplicationMenu(buildMenu()); return !!on; });
+
 async function createWindow() {
   port = await freePort(8765);
   const cfg = loadCfg();
@@ -159,13 +224,14 @@ async function createWindow() {
     if (url && await probe(url)) remote = url;
   }
   if (!remote) startServer();
-  win = new BrowserWindow({ width: 1280, height: 860, title: "進化三國", backgroundColor: "#0e0f11", webPreferences: { contextIsolation: true } });
+  win = new BrowserWindow({ width: 1280, height: 860, title: "進化三國", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0e0f11", webPreferences: { preload: path.join(__dirname, "preload-main.js"), contextIsolation: true } });
   Menu.setApplicationMenu(buildMenu());
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
   try {
     if (remote) await win.loadURL(remote);
     else { await waitReady(); await win.loadURL("http://127.0.0.1:" + port + "/"); }
   } catch (e) { dialog.showErrorBox("無法啟動", String(e.message || e)); app.quit(); return; }
+  startPresence();
   if (app.isPackaged) setTimeout(() => checkUpdate(false), 4000);   // 啟動後自動檢查一次 (開發模式不檢查)
 }
 
@@ -175,5 +241,5 @@ else {
   app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
   app.whenReady().then(createWindow);
 }
-app.on("before-quit", () => { quitting = true; stopServer(); });
+app.on("before-quit", () => { quitting = true; stopPresence(); stopServer(); });
 app.on("window-all-closed", () => app.quit());

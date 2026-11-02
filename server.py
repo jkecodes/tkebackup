@@ -2095,7 +2095,7 @@ class Handler(BaseHTTPRequestHandler):
                 snap["ranked_abandoned"] = M.ranked_abandoned()
                 snap["host_name"] = M.host_name()
                 snap["events"] = M.events
-                snap["avstyles"] = M.seat_styles(); snap["locked"] = M.game_active(); snap["ranked"] = bool((M.cfg or {}).get("ranked"))
+                snap["avstyles"] = M.seat_styles(); snap["locked"] = M.game_active(); snap["ranked"] = bool((M.cfg or {}).get("ranked")); snap["gmode"] = (M.cfg or {}).get("mode") or "normal"; snap["rmode"] = (M.cfg or {}).get("role_mode") or "normal"
                 snap["lesson"] = M.lesson_view()
                 if M.cfg and "players" in snap:   # 每個電腦座位的難度 (1~4)
                     snap["ai_lv"] = [M._level(M.cfg, i) for i in range(len(snap["players"]))]

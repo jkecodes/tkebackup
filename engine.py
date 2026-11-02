@@ -507,7 +507,7 @@ class Game:
             if src:
                 n //= 2 ** src.dmg_half   # 弱: 該玩家本回合「造成」的傷害 ÷2 (無條件捨去)
             if n > 0:
-                n = self._damage_window(src, tgt, n0, n, raw)
+                n = self._damage_window(src, tgt, n0, n, raw, 0 if qg else tgt.armor_names().count("緩衝盾"))
                 if self.__dict__.get("_pre_react") is not None:   # 傷害結算前已經選了反 / 調 / 占: 「要受到傷害時」就先結算,不管後面緩衝盾 / 曹真阻擋之類會不會把傷害減掉
                     n = self.damage_reactions(src, tgt, n, nature, raw)
                     self._react_declined = True   # 已經問過了,後面不再問第二次
@@ -567,7 +567,7 @@ class Game:
         if tgt.alive:
             tgt.char.after_damage(self, tgt)   # 這次傷害全部結算完 (含瀕死、連鎖) 才跳出的選擇
 
-    def _damage_window(self, src, tgt, n0, n, raw=None):
+    def _damage_window(self, src, tgt, n0, n, raw=None, shield=0):
         """傷害結算前: 受傷的人和傷害來源,手上只要有 ⚡ 牌 (強 / 弱 / 降雷 / 孤 / 出) 就問要不要接連鎖
         (例如王允反彈時,強化王允 → 傷害 x2);打出強 / 弱後從 n0 重算。反 / 調 / 占 之後在 damage_reactions 問。"""
         askers = [tgt] + ([src] if src is not None and src is not tgt else [])
@@ -589,7 +589,8 @@ class Game:
                         rmap[id(o)] = (c, k)
                         opts.append((o, None))
                 note = f" (反擊轉出 {self.dmg_preview(tgt, (raw if raw is not None else n) * (2 if tgt.char.fan_double else 1), bonus=True)} 點)" if any(vname(x) == "反" for x in reacts) else ""
-                i = q.agent.choose_offturn(self, q, opts, tgt, f"即將受到 {n} 點傷害{note}")
+                sh_note = f" (緩衝盾 −{shield})" if shield else ""   # 緩衝盾會在這之後才扣,提示直接寫扣完的點數
+                i = q.agent.choose_offturn(self, q, opts, tgt, f"即將受到 {max(0, n - shield)} 點傷害{sh_note}{note}")
                 if i is None:
                     if reacts:
                         self._react_declined = True   # 已經問過要不要出反 / 調 / 占 了,不再問第二次

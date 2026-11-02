@@ -211,6 +211,13 @@
       const fv = el("span", { className: "sv", textContent: Math.round(fs * 100) + "%" });
       const fsl = el("input", { type: "range", min: 80, max: 150, step: 5, value: Math.round(fs * 100) }); fsl.oninput = () => { SGS_FX.setFs(fsl.value / 100); fv.textContent = fsl.value + "%"; };
       const ttsRow = window.speechSynthesis ? row("朗讀", cb(tts, v => SGS_FX.setTts(v)), el("span", { className: "meta", textContent: "唸出對局紀錄" })) : row("朗讀", el("span", { className: "meta", textContent: "這個瀏覽器不支援朗讀" }));
+      const discordRow = () => {   // 桌面版才有: 在 Discord 顯示目前在大廳 / 對戰 (Rich Presence) 的開關
+        const d = window.sgsDesktop; if (!d || !d.presenceGet) return "";
+        const i = el("input", { type: "checkbox" }), meta = el("span", { className: "meta", textContent: "在 Discord 顯示目前在大廳 / 對戰" });
+        i.disabled = true; i.onchange = () => d.presenceSet(i.checked);
+        d.presenceGet().then(r => { i.checked = !!r.on; i.disabled = false; if (!r.available) meta.textContent = "尚未設定 Discord 應用程式,開了也不會顯示"; }).catch(() => {});
+        return row("Discord 狀態", i, meta);
+      };
       const aboutRow = () => {   // 版本列: 版本號 / GitHub / 更新日誌 排同一行;更新日誌按鈕開視窗,視窗裡有選版本的下拉選單
         const v = el("span", { className: "meta", textContent: "…", style: "display:flex;align-items:center;gap:6px;flex:1;min-width:0" });   // flex:1 + 按鈕靠右: 跟下一列 (登出 / 刪除帳號) 的右邊對齊
         const box = el("div", { className: "setrow" }, el("span", { className: "sl", textContent: "版本" }), v);
@@ -280,7 +287,7 @@
         el("div", { className: "dh" }, el("div", {}, el("h3", { textContent: "⚙ 設定" })), el("button", { className: "x", textContent: "✕", onclick: close })),
         el("div", { className: "dbody" },
           row("音效", cb(!muted, v => SGS_FX.setMuted(!v)), el("span", { className: "meta", textContent: "開 / 關" })),
-          row("音量", vs, vv), row("字體大小", fsl, fv), row("每步延遲", spd, spv), window.SGS_LANGSEL ? row("語言", window.SGS_LANGSEL()) : "", ttsRow, row("⚡連鎖詢問", cs), aboutRow(), acctRow()));
+          row("音量", vs, vv), row("字體大小", fsl, fv), row("每步延遲", spd, spv), window.SGS_LANGSEL ? row("語言", window.SGS_LANGSEL()) : "", ttsRow, discordRow(), row("⚡連鎖詢問", cs), aboutRow(), acctRow()));
       const m = el("div", { className: "modal", id: "setdlg", style: "z-index:7600" }, dlg);
       m.onclick = e => { if (e.target === m) close(); };
       document.body.append(m);
