@@ -135,7 +135,7 @@ def build_generals(m, roster_data, untagged):
         if name == "曹休":
             hint = "手上只剩一張殺: 把它對 P1 打出去,手牌變成 0 就會觸發技能 (抽 1 張並讓一名角色翻面)"
         if name == "郭嘉":
-            hint = "按「結束出牌」,對手 P2 會裝備武器和防具,選「抽 2 張牌」或「回 1 點血」看「郭嘉」的技能"
+            hint = "按「結束出牌」,對手 P2 會裝備武器和防具 (選「抽 2 張牌」或「回 1 點血」),再對你出樂不思蜀;輪到你判定時選「拿走判定牌」,看「郭嘉」的技能"
         if name == "李嚴":
             hint = "按「結束出牌」,對手 P2 會對你使用樂不思蜀 (延時錦囊),選「發動」就抽 2 張"
         if name == "龐德":
@@ -176,7 +176,7 @@ def build_generals(m, roster_data, untagged):
             L["players"][0] = dict(hand=["殺"])
             L["draw"] = 0   # 開局不抽牌,手上就只有這一張
         if name == "郭嘉":
-            L["players"][2] = dict(hand=["諸葛連弩", "藤甲"], plan=[("諸葛連弩", None), ("藤甲", None)], hp=4, maxhp=4)
+            L["players"][2] = dict(hand=["諸葛連弩", "藤甲", "樂"], plan=[("諸葛連弩", None), ("藤甲", None), ("樂", 0)], hp=4, maxhp=4)
         if name == "李嚴":
             L["players"][2] = dict(hand=["樂", "樂"], plan=[("樂", 0)], hp=4, maxhp=4)
         if name == "華佗":

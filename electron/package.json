@@ -1,7 +1,7 @@
 {
   "name": "sgs-sim",
   "productName": "進化三國",
-  "version": "1.11.1",
+  "version": "1.11.2",
   "description": "進化三國模擬器 (桌面版)",
   "main": "main.js",
   "private": true,

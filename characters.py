@@ -123,6 +123,7 @@ class Char:
     def on_equipped(self, g, p, owner, c): pass  # 別人放置 (裝上) 了一件裝備
     def on_cards_discarded(self, g, p, c): pass     # 自己的牌被捨棄
     def on_judged(self, g, p, c): pass              # 自己判定後 (袁術)
+    def on_any_judge(self, g, p, who, c): pass      # 任何人判定後 (郭嘉: 拿走判定牌)
     def on_any_death(self, g, p, victim, killer): pass
     def on_other_draw(self, g, p, cur): pass        # 別人抽牌階段
     def on_card_used(self, g, p, user, card): pass  # 任何人使用牌 / 反調占
@@ -1624,14 +1625,12 @@ class 蔣幹(Char):
 class 郭嘉(Char):
     name, faction = "郭嘉", "魏"
 
-    def on_turn_start(self, g, p):  # 拿走場上所有判定區的牌
-        cards = [(q, c) for q in g.alive_players() for c in q.judge]
-        if not cards or not p.agent.choose_skill(g, p, "郭嘉-拿判定牌"):
+    def on_any_judge(self, g, p, who, c):  # 任何人判定翻出的牌 (牌堆頂翻開用來分辨結果的那張): 可以拿走
+        if p.flipped or c not in g.discard or not p.agent.choose_skill(g, p, "郭嘉-拿判定牌"):
             return
-        for q, c in cards:
-            q.judge.remove(c)
-            p.hand.append(getattr(c, "orig", c))
-        g.log(f"  {p.name}[郭嘉] 拿走場上 {len(cards)} 張判定區的牌")
+        g.discard.remove(c)
+        p.hand.append(c)
+        g.log(f"  {p.name}[郭嘉] 拿走判定牌 {c}")
 
     def on_equipped(self, g, p, owner, c):   # 別人放置裝備時: 抽 2 張牌或回 1 血
         if not g.trigger_ok(p, "郭嘉-裝備"):

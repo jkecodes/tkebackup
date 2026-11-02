@@ -440,6 +440,8 @@ class Game:
         self.log(f"JUDGE|{who.idx if who is not None else -1}|{c.color}")   # 給前端音效用的隱藏行
         if who is not None and who.alive:
             who.char.on_judged(self, who, c)   # 袁術: 自己判定也算牌被捨棄
+        for q in list(self.alive_players()):
+            q.char.on_any_judge(self, q, who, c)   # 郭嘉: 任何人判定翻出的牌都可以拿走
         return c
 
     def discard_card(self, p, c, played=False):   # played=True: 這是「使用 / 打出」的牌 (無懈、閃、殺回應...),不算被捨棄,不觸發袁術
@@ -506,8 +508,9 @@ class Game:
                 n *= 2 ** src.dmg_x2   # 強: 該玩家本回合「造成」的傷害 x2
             if src:
                 n //= 2 ** src.dmg_half   # 弱: 該玩家本回合「造成」的傷害 ÷2 (無條件捨去)
-            if n > 0:
-                n = self._damage_window(src, tgt, n0, n, raw, 0 if qg else tgt.armor_names().count("緩衝盾"))
+            shield = 0 if qg else tgt.armor_names().count("緩衝盾")
+            if n - shield > 0:   # 扣掉緩衝盾後是 0 點傷害就不用問 ⚡ 連鎖
+                n = self._damage_window(src, tgt, n0, n, raw, shield)
                 if self.__dict__.get("_pre_react") is not None:   # 傷害結算前已經選了反 / 調 / 占: 「要受到傷害時」就先結算,不管後面緩衝盾 / 曹真阻擋之類會不會把傷害減掉
                     n = self.damage_reactions(src, tgt, n, nature, raw)
                     self._react_declined = True   # 已經問過了,後面不再問第二次
@@ -988,7 +991,8 @@ class Game:
                     if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出")]
             if not opts or not p.alive:
                 continue
-            i = q.agent.choose_offturn(self, q, opts, p, f"使用了{full_name(card.name)}")
+            vt = [x.name for x in ([tgt] if isinstance(tgt, Player) else [x for x in tgt if isinstance(x, Player)] if isinstance(tgt, (tuple, list)) else []) if x is not p]
+            i = q.agent.choose_offturn(self, q, opts, p, f"使用了{full_name(card.name)}" + (f" (對 {'、'.join(vt)})" if vt else ""))
             if i is None:
                 continue
             c, t = opts[i]
@@ -1395,7 +1399,10 @@ class Game:
             self.chain_view.append((card, p.idx))
         if not isinstance(card, SkillAct):
             self.log(self._fx_hint(p, card, tgt))   # 給前端動畫用的隱藏行: 牌飛向誰
-        self.link(f"{p.name} 使用 {card}")
+        vs = [tgt] if isinstance(tgt, Player) else [x for x in tgt if isinstance(x, Player)] if isinstance(tgt, (tuple, list)) else []
+        vs = [x for x in vs if x is not p]
+        at = f"對 {'、'.join(x.name for x in vs)} " if vs and not isinstance(card, SkillAct) and card.kind in ("basic", "trick") else ""   # 先寫出對象,別人才知道要不要接連鎖 / 出無懈
+        self.link(f"{p.name} {at}使用 {card}")
         if isinstance(card, SkillAct):
             self.cur_card = self.cur_user = None   # 不要沿用上一張牌 (否則響應提示會寫成上一張牌的名字)
             if isinstance(tgt, Player) and tgt is not p:   # 武將技能指定到的人,也能接連鎖用 ⚡弱 / 降雷
@@ -1556,8 +1563,8 @@ class Game:
                 self.draw(p, 1)
         elif n == "笑":
             self.log(f"{p.name} 對 {tgt.name} 使用 笑")
-            if not self.wuxie_contest(p, tgt, "笑", True) and p.hand:   # 無懈 / 其他效果之後手牌可能已空
-                give = p.agent.choose_discard(self, p, 1, list(p.hand), msg=f"選擇要給 {tgt.name} 的 1 張手牌")[0]
+            give = p.agent.choose_discard(self, p, 1, list(p.hand), msg=f"選擇要給 {tgt.name} 的 1 張手牌")[0] if p.hand else None   # 先選好要給的牌,才問別人要不要出無懈
+            if not self.wuxie_contest(p, tgt, "笑", True) and give in p.hand:   # 無懈 / 其他效果之後那張牌可能已經不在手上
                 p.hand.remove(give)
                 tgt.hand.append(give)
                 if not self.need_response(tgt, "閃", {"attacker": p}):
@@ -1846,6 +1853,7 @@ class Game:
             self.log("  閃電無法移動,留在原玩家判定區")
 
     def play_phase(self, p):
+        jiu_must, jiu_ask = False, 0
         for _ in range(60):
             if not p.alive:
                 return
@@ -1853,13 +1861,27 @@ class Game:
                 self.log(f"  {p.name} 的出牌階段被迫結束")
                 break
             opts = self.play_options(p)
+            all_opts = opts
+            if jiu_must:   # 酒要跟殺一起出: 喝了酒就只能接著出殺 (不能只喝酒就結束)
+                opts = [o for o in opts if getattr(o[0], "name", "") == "殺" and isinstance(o[1], (Player, tuple, list))]
+                if not opts:
+                    jiu_must, opts = False, all_opts
             if not opts:
                 break
             self.clear_chain_view()
             i = p.agent.act(self, p, opts)
             if i is None:
-                break
+                if jiu_must and jiu_ask < 3:   # 不能只喝酒不出殺: 再問一次 (最多 3 次,免得卡死)
+                    jiu_ask += 1
+                    continue
+                if not jiu_must or hasattr(p.agent, "_ask"):
+                    break
+                i = 0   # 電腦喝了酒卻不想出殺: 就近挑第一張殺打出去 (真人才可以放棄)
             card, tgt = opts[i]
+            if getattr(card, "name", "") == "殺":
+                jiu_must = False
+            elif getattr(card, "name", "") == "酒" and tgt is None:
+                jiu_must, jiu_ask = True, 0
             self.execute(p, card, tgt)
             if (p.alive and p.char.single_to_all and isinstance(tgt, Player) and not isinstance(card, SkillAct)
                     and card.name in ("順", "過", "決", "火攻", "拋", "鴻", "笑", "投", "轉")):

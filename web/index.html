@@ -541,9 +541,9 @@ img.av{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:
 .pl.tp1{outline:3px solid #ffd24a;outline-offset:2px}
 .pl .nm{display:flex;align-items:center;min-width:0}.pl .nm .pn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}.pl .nm .role,.pl .nm .winb{flex:0 0 auto}
 #table{pointer-events:none}#table .pl{pointer-events:auto}
-.dsg{display:flex;gap:10px;align-items:center;padding:6px 8px;border:1px solid #24496f;border-radius:8px;background:#0e2442;cursor:pointer}
+.dsg{flex:none;display:flex;gap:10px;align-items:center;padding:6px 8px;border:1px solid #24496f;border-radius:8px;background:#0e2442;cursor:pointer}
 .dsg:hover{border-color:#3fd2ff}.dsg.rec{border-color:#e9bf62;background:#2a2410}.dsg img{width:38px;height:54px;object-fit:cover;border-radius:3px}
-.dsg .meta{font-size:11px;max-height:3.6em;overflow:hidden}.recb{margin-left:8px;color:#ffd24a;font-size:12px}
+.dsg .meta{font-size:11px}.recb{margin-left:8px;color:#ffd24a;font-size:12px}
 .cm.ai .ct{color:#9fe0ff}
 #center .rematch{background:linear-gradient(#ffd24a,#d9971a)!important;color:#2a1800!important;border:1px solid #ffe38a!important;font-weight:800;font-size:16px;padding:10px 22px;border-radius:10px;cursor:pointer;box-shadow:0 0 16px rgba(255,210,74,.45);text-shadow:none}
 #center .rematch:hover{filter:brightness(1.1)}
@@ -1517,7 +1517,7 @@ function addLogs(lines) {
     S.prevChain = null;
     const el = h("div", {class: cls.trim()}, ...logNodes(s)); el.dataset.zh = s;
     L.append(el);
-    const cm = isChain && s.trim().match(/^↳+ (P\d+\([^)]*\)) 使用 (\S+)$/);
+    const cm = isChain && s.trim().match(/^↳+ (P\d+\([^)]*\))(?: 對 [^ ]+)? 使用 (\S+)$/);
     if (cm) S.prevChain = {el, pl: cm[1], card: cm[2].replace(/^[紅黑]/, "")};
     noteAction(s0);
     if (window.SGS_FX) SGS_FX.onLine(s0, quiet);
@@ -2153,7 +2153,7 @@ function rankHelpBtn(big) {
   return h("button", {type: "button", class: big ? "" : "mini-btn", style: big ? {minWidth: "150px"} : null, text: "❔ 段位說明", onclick: rankHelp});
 }
 function gameStartSfx() {   // 開局音效 (兩個進入遊戲的路徑都會呼叫,2 秒內只響一次)
-  const t = Date.now(); if (S.gsT && t - S.gsT < 2000) return; S.gsT = t;
+  const t = Date.now(); if (S.gsT && t - S.gsT < 2000) return; S.gsT = t; S.rlSnd = false;
   try { if (window.SGS_FX) SGS_FX.sfx("gameStart"); } catch (e) {}
 }
 function renderPicking(snap) {   // 隨機武將: 每人抽 3 張選 1,大家同時選
@@ -2186,13 +2186,20 @@ function renderPicking(snap) {   // 隨機武將: 每人抽 3 張選 1,大家同
 function renderRankedLobby(snap) {   // 段位模式大廳: 每個人只能選「參戰」或「觀戰」
   const M = $("#modal"); M.textContent = "";
   $("#status").textContent = "段位模式: 想打的人按參戰";
+  if (!S.rlSnd) { S.rlSnd = true; try { if (window.SGS_FX) SGS_FX.sfx("arena"); } catch (e) {} }   // 進到段位大廳播一次音效 (離開房間 / 開局後重置)
   const seated = snap.mine != null;
   const free = Array.from({length: snap.n}, (_, i) => i).find(i => snap.humans.includes(i) && !snap.claims.includes(i));
   const join = async () => { if (free == null) { toast("座位已滿"); return; } await api("/api/claim", {seat: free, name: myNick()}); poll(true); };
   const watch = async () => { await api("/api/claim", {seat: null}); poll(true); };
   const rows = (snap.online || []).map(x => h("div", {class: "lrow"},
     h("span", {style: {display: "inline-flex", alignItems: "center", gap: "6px"}}, avEl(x.avatar, x.style, {style: {width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover"}}), (x.host ? "👑 " : "") + (x.name || "未命名") + (x.id === S.myWho ? " (你)" : "")),
-    h("b", {text: x.seat != null ? "⚔ 參戰" : "👁 觀戰", style: {color: x.seat != null ? "#ffd24a" : "var(--dim)"}})));
+    h("span", {style: {display: "inline-flex", alignItems: "center", gap: "10px"}},
+      S.amHost && x.id !== S.myWho && !x.host ? h("button", {type: "button", text: "👑 讓給他", title: "把房主讓給他", class: "mb", onclick: async () => {   // 段位大廳也能轉讓房主
+        if (!confirm(`確定把房主讓給「${x.name || "未命名"}」嗎?你之後就不能操作新遊戲/暫停等功能了。`)) return;
+        const r = await api("/api/transfer", {to: x.id});
+        if (r.ok) { toast("房主已讓給 " + (r.name || "對方"), "host"); poll(true); } else toast("讓房主失敗: " + r.error);
+      }}) : null,
+      h("b", {text: x.seat != null ? "⚔ 參戰" : "👁 觀戰", style: {color: x.seat != null ? "#ffd24a" : "var(--dim)"}}))));
   const n = (snap.online || []).filter(x => x.seat != null).length;
   M.append(h("div", {class: "modal"}, h("div", {class: "dlg"}, h("h3", {text: "段位模式"}),
     h("div", {class: "meta", text: "想打的人按「我要參戰」,沒按的自動進入觀戰;沒人坐的座位由電腦擔任,武將全部隨機。目前 " + n + " 人參戰。"}),
@@ -2621,7 +2628,7 @@ $("#asubmit").onclick = submitAuth;
 for (const id of ["#auser", "#apw"]) $(id).onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) submitAuth(); };
 function logout() { try { localStorage.removeItem("sgs_tok"); localStorage.removeItem("nick"); localStorage.removeItem("sgs_theme"); sessionStorage.removeItem("sgs_room"); } catch (e) {} const u = new URL(location.href); u.search = ""; location.href = u.toString(); }
 function resetRoomState() {
-  Object.assign(S, {logN: 0, thN: 0, thoughts: [], lastTh: {}, sel: null, picked: null, pendId: 0, chatN: 0, chatUnread: 0, snap: null, modalOpen: null, lobbyKey: null, tgtPick: null, setupOff: null, evSeen: null});   // evSeen: 換房間後第一次只記下目前進度,不重播房裡已經發生的通知 { const b = $("#cbadge"); if (b) b.textContent = ""; }
+  Object.assign(S, {rlSnd: false, logN: 0, thN: 0, thoughts: [], lastTh: {}, sel: null, picked: null, pendId: 0, chatN: 0, chatUnread: 0, snap: null, modalOpen: null, lobbyKey: null, tgtPick: null, setupOff: null, evSeen: null});   // evSeen: 換房間後第一次只記下目前進度,不重播房裡已經發生的通知 { const b = $("#cbadge"); if (b) b.textContent = ""; }
   for (const id of ["#log", "#thl", "#cl", "#modal", "#table", "#hand", "#bar", "#center", "#roundtag"]) { const e = $(id); if (e) e.textContent = ""; }
 }
 function enterRoom(id, name) {

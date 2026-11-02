@@ -441,7 +441,7 @@ class Profiles:
 
     COIN_LOSS, COIN_DRAW = 8, 12   # 段位模式輸 / 平手 (含內奸次級勝利) 給的遊戲幣;贏 = 贏的積分 ×0.8 + 10 (弱電腦 18 ~ 很強 36)
 
-    def award(self, tok, won, char=None, role=None, win_xp=None, ranked=False, win_rp=None, facts=None, loss_rp=None, secs=0, draw=False, partial=0, coins=None):
+    def award(self, tok, won, char=None, role=None, win_xp=None, ranked=False, win_rp=None, facts=None, loss_rp=None, secs=0, draw=False, partial=0, coins=None, no_gain=False):
         """回傳 (段位積分變化, 之前段位, 之後段位);休閒模式積分不變 (變化 0)。"""
         p = self.get(tok)
         if not p:
@@ -463,14 +463,14 @@ class Profiles:
                 old = p.get("rp", 0)
                 rs = p.get("rstreak", 0)   # 段位連勝: 連勝中每多贏一場,下一場多給 3 分 (最多 +15);輸一場就歸零
                 bonus = min(self.STREAK_CAP, rs * self.STREAK_STEP) if won else 0
-                p["rstreak"] = rs + 1 if won else 0
-                p["rp"] = max(0, old + ((win_rp or 25) + bonus if won else -(loss_rp or self.LOSS_RP[3])))
+                p["rstreak"] = (rs if no_gain else rs + 1) if won else 0
+                p["rp"] = max(0, old + ((win_rp or 25) + bonus if won and not no_gain else 0 if won else -(loss_rp or self.LOSS_RP[3])))
                 delta = p["rp"] - old
-                p["rgames"] = p.get("rgames", 0) + 1; p["rwins"] = p.get("rwins", 0) + (1 if won else 0)
+                p["rgames"] = p.get("rgames", 0) + 1; p["rwins"] = p.get("rwins", 0) + (1 if won and not no_gain else 0)
             p["peak_rp"] = max(p.get("peak_rp", 0), p.get("rp", 0))
             gold = 0   # 遊戲幣只有段位模式才有 (棄賽 coins=0)
             if ranked:
-                gold = coins if coins is not None else (round((win_rp or 25) * 0.8) + 10 if won else self.COIN_DRAW if (draw or partial) else self.COIN_LOSS)
+                gold = 0 if (won and no_gain) else coins if coins is not None else (round((win_rp or 25) * 0.8) + 10 if won else self.COIN_DRAW if (draw or partial) else self.COIN_LOSS)
                 p["coins"] = p.get("coins", 0) + gold
             p["streak"] = p.get("streak", 0) + 1 if won else 0
             p["best_streak"] = max(p.get("best_streak", 0), p["streak"])
@@ -1324,9 +1324,10 @@ class Manager:
                 wx = Profiles.WIN_XP.get(round(sum(lv) / len(lv)), 45) if ai_present else None   # 電腦難度取平均
                 wrp = Profiles.WIN_RP.get(round(sum(lv) / len(lv)), 25) if ai_present else 25
                 ranked = bool(self.cfg.get("ranked"))
+                multi = False
                 if ranked and self.ips.get(tok) and sum(1 for s2, t2 in self.claims.items() if s2 in self.humans and self.ips.get(t2) == self.ips.get(tok)) > 1:
-                    ranked = False   # 同一個 IP 有兩個以上帳號在同一場段位局: 不計段位分 (防止開小帳互相送分)
-                    self._event(f"⚠ {self.nicks.get(tok) or '未命名'}: 同一個網路有多個帳號在這場段位局,這場不計段位積分", "warn")
+                    multi = True   # 同一個 IP 有兩個以上帳號在同一場段位局: 贏了不加分、輸了照扣 (防止開小帳互相送分)
+                    self._event(f"⚠ {self.nicks.get(tok) or '未命名'}: 同一個網路有多個帳號在這場段位局,這場贏了不加分、輸了照扣", "warn")
                 lrp = Profiles.LOSS_RP.get(round(sum(lv) / len(lv)), 25) if ai_present else 25   # 輸的扣分 = 同難度贏的加分
                 others = [v for t, v in rps.items() if t != tok]
                 if others:   # 有其他真人: 對手平均段位比我高 → 贏得多、輸扣得少;比我低 → 贏得少、輸扣得多 (±50%)
@@ -1346,7 +1347,7 @@ class Manager:
                 lrp = lrp * Profiles.loss_tier(rps.get(tok, 0))   # 分段式期望值: 依自己結算前的段位調整輸的扣分
                 wrp, lrp = max(1, round(wrp * rw)), max(1, round(lrp * rl))
                 r = PROFILES.award(tok, won, pl._char.name, pl.role, wx, ranked, wrp, {"practice": bool(self.cfg.get("practice")), "hp": pl.hp, "alive": pl.alive, "rounds": g.round, "n": len(g.players), "noroles": noroles, "dmg": pl.dmg_total, "sha": pl.sha_n,
-                                                                                                                  "maxhand": pl.max_hand, "chain11": pl.chain11, "wei": pl.wei_n, "same": len(g.players) >= 2 and len({q._char.name for q in g.players}) == 1}, lrp, secs=time.time() - getattr(self, "game_t0", time.time()), draw=draw, partial=partial)
+                                                                                                                  "maxhand": pl.max_hand, "chain11": pl.chain11, "wei": pl.wei_n, "same": len(g.players) >= 2 and len({q._char.name for q in g.players}) == 1}, lrp, secs=time.time() - getattr(self, "game_t0", time.time()), draw=draw, partial=0 if multi else partial, no_gain=multi)
                 if r:
                     d, b, a = r
                     who = self.nicks.get(tok) or '未命名'

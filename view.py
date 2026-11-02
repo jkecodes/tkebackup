@@ -175,6 +175,30 @@ def _skill_lines(name):
     return _SK.get(name, [])
 
 
+ONCE_SKILLS = {   # 一回合一次的技能: (顯示名稱, 這回合用過了嗎, 只能在自己回合用)
+    "司馬懿": [("奪傷害牌", lambda g, p, c: bool(p.turn_flags.get("sy_" + str(g.turn_id))), False)],
+    "張郃": [("沒人可殺抽牌", lambda g, p, c: bool(p.turn_flags.get("zh")), True)],
+    "曹植": [("交換手牌", lambda g, p, c: bool(p.turn_flags.get("cz2")), True)],
+    "邯鄲淳": [("判定", lambda g, p, c: getattr(c, "used_turn", None) == g.turn_id, False)],
+    "吳懿": [("交換手牌", lambda g, p, c: bool(p.turn_flags.get("wu1")), True)],
+    "張松": [("指定", lambda g, p, c: bool(p.turn_flags.get("zs")), True)],
+    "趙雲": [("逼人棄牌", lambda g, p, c: bool(p.turn_flags.get("zy")), True)],
+    "馬謖": [("交換手牌", lambda g, p, c: bool(p.turn_flags.get("ms")), True)],
+    "龐統": [("浴火", lambda g, p, c: getattr(c, "used", None) == g.turn_id, False)],
+    "呂蒙": [("判定五次", lambda g, p, c: getattr(c, "last", None) == g.turn_id, False)],
+    "周魴": [("丟牌扣血", lambda g, p, c: bool(p.turn_flags.get("zf")), True)],
+    "孫權": [("換牌", lambda g, p, c: bool(p.turn_flags.get("sq_swap")), True), ("強制扣血", lambda g, p, c: bool(p.turn_flags.get("sq_sha")), True)],
+    "甘寧": [("無中生有", lambda g, p, c: bool(p.turn_flags.get("gn")), True)],
+    "陸遜": [("無中生有", lambda g, p, c: bool(p.turn_flags.get("lx")), True)],
+    "公孫淵": [("展示手牌", lambda g, p, c: bool(p.turn_flags.get("gsy")), True)],
+    "孔融": [("重鑄", lambda g, p, c: getattr(c, "last", None) == g.turn_id, False)],
+    "張角": [("捨牌回血", lambda g, p, c: bool(p.turn_flags.get("zj")), True)],
+    "李儒": [("令人出閃", lambda g, p, c: bool(p.turn_flags.get("lr")), True)],
+    "王允": [("全員換牌", lambda g, p, c: bool(p.turn_flags.get("wy2")), True)],
+    "龐德": [("獲得錦囊", lambda g, p, c: p.turn_flags.get("pd_turn") == g.turn_id, False)],
+}
+
+
 def _badges(g, p, c=None):
     """武將身上的標記 / 狀態 (都是公開資訊)。k 決定顏色: cnt 計數 / once 一次性技能 / st 狀態 / mk 指定。"""
     out = []
@@ -228,6 +252,10 @@ def _badges(g, p, c=None):
             add(f"下回合獲得 P{c.pending.idx} 的技能", "st")
         elif n == "左慈" and c.used:
             add(f"化身 ×{len(c.used)}", "cnt")
+        for label, used, own in ONCE_SKILLS.get(c.name, []):   # 一回合一次的技能: 已用 / 可用 標記 (只能自己回合用的,不是自己回合又沒用過就不顯示)
+            u = used(g, p, c)
+            if u or not own or g.cur is p:
+                add(f"{label} (已用)" if u else f"{label} (可用)", "once")
     chars_badges(c)
     for q in p.borrow + p.borrow2:   # 複製技能: 標記也照抄 (狀態用原本武將那張的)
         if q is not p and q.alive and not sub and q._char.name != c.name:

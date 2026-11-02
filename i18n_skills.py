@@ -55,7 +55,7 @@ T = {
         ("Slash can be used as Duel", "殺を決闘として使える"),
         ("This turn you may skip discarding, but must discard 1 hand card", "このターン捨て札を省略できるが、手札1枚を捨てる")],
 "邯鄲淳": [("Once per turn: when others use a basic card, you may judge: red: restore Y HP (Y = hand size); black: draw X cards (X = your HP)", "1ターン1回: 他人が基本札を使った時に判定できる。赤: 手札枚数Yだけ体力回復、黒: 体力X枚引く")],
-"郭嘉": [("You may take all cards from judgement zones", "判定エリアのカードを全て取れる"),
+"郭嘉": [("When anyone judges, you may take the judgement card that was flipped", "誰かが判定するとき、めくられた判定牌を取れる"),
         ("When others equip a piece of equipment, I draw 2 or restore 1 HP", "他人が装備を置いた時、2枚引くか体力1回復")],
 "鄧艾": [("You can't be targeted by Starvation", "兵糧寸断の対象にならない"),
         ("When others use a non-delayed trick, they lose 1 HP (dodgeable)", "他人が(遅延でない)錦囊を使った時、体力-1(閃で防げる)"),
