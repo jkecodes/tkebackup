@@ -1077,6 +1077,7 @@ class 曹植(Char):
             if p._char is not self and p.alias and self not in p.alias:   # 左慈: 同一個回合開頭已換了新化身,勝利畫面要顯示真正獲勝的曹植
                 p.alias = [self]
             g.winner = "曹植 (七輪後獨自勝利)"
+            g.solo_winner = p.idx   # 結算 / 畫面用: 只有這個座位的人贏,其他人 (含同陣營) 都算輸
             raise GameOver()
 
     def skill_options(self, g, p):

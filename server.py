@@ -51,8 +51,8 @@ os.makedirs(DATA, exist_ok=True)
 
 
 def make_ai(level):
-    """電腦代理: 第 5 級用移植自實戰機器人的 ProAgent,其餘照舊用 LeveledAgent。"""
-    return ProAgent() if level >= 5 else LeveledAgent(level)
+    """電腦代理: 全部難度都是最強的 ProAgent (移植自實戰機器人),難度越低失誤率越高 (見 ProAgent.ERR)。"""
+    return ProAgent(level)
 
 
 class Profiles:
@@ -1337,7 +1337,7 @@ class Manager:
                     wx = 2 * (wx if wx is not None else Profiles.XP_WIN)
                 draw = str(w).startswith("平手")
                 rw, rl = Profiles.role_mult(len(g.players), pl.role) if not noroles else (1.0, 1.0)
-                won = (w == f"P{pl.idx}") if noroles else (camp(pl.role) == w and (pl.role != "內奸" or pl.alive))
+                won = (pl.idx == g.solo_winner) if getattr(g, "solo_winner", None) is not None else (w == f"P{pl.idx}") if noroles else (camp(pl.role) == w and (pl.role != "內奸" or pl.alive))   # 曹植七輪獨自勝利: 只有曹植那位算贏
                 if not won and not draw and pl.alive and pl.role != "內奸":
                     rl *= 0.8   # 輸了但自己撐到最後: 扣分打 8 折
                 partial = round(wrp * rw * 0.3) if (not won and not draw and pl.role == "內奸" and getattr(pl, "duel1", False)) else 0   # 內奸撐到和主公單挑才輸: 次級勝利,給贏分的 30%

@@ -75,8 +75,8 @@ html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px
 .tag.red{color:#ff9a95;border-color:#5a3434}.tag.blk{color:var(--black)}.tag.chain{color:var(--blue);border-color:#2c4a6e}.tag.flip{color:#d9a6ff;border-color:#523a6e}
 .bubble{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);width:240px;background:#f4ecd6;color:#2b2415;border-radius:10px;padding:5px 10px;font-size:12px;pointer-events:none;z-index:5;box-shadow:var(--shadow)}
 .bubble::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;border:6px solid transparent;border-top-color:#f4ecd6}
-.mini{display:flex;flex-wrap:nowrap;gap:2px;margin-top:4px;overflow:hidden}   /* 觀戰顯示手牌: 固定一排,牌多就互相疊起來 (露出左邊一截),不撐高玩家框蓋住場地中間 */
-.mini img{width:30px;min-width:8px;flex:0 1 30px;height:43px;object-fit:cover;object-position:left center;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.5);cursor:help}
+.mini{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;width:0;min-width:100%;max-height:132px;overflow:hidden}   /* 觀戰顯示手牌: 牌多就換行排 (width:0 + min-width:100% 讓它不撐寬玩家框,寬度照框走),最多 4 排 */
+.mini img{width:22px;flex:none;height:31px;object-fit:cover;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.5);cursor:help}
 .card{position:relative;width:108px;height:154px;border-radius:9px;border:2px solid #2a3544;background:#0d0f13;flex:none;overflow:hidden;cursor:default;box-shadow:0 4px 10px rgba(0,0,0,.5);transition:transform .15s,box-shadow .15s}
 .card.land{width:154px;height:108px}
 .card img{width:100%;height:100%;object-fit:cover;display:block}
@@ -476,7 +476,9 @@ body:has(#modal .modal:not(.soft)) #bHand{display:none!important}   /* 新遊戲
   #tablewrap::before,#tablewrap::after{display:none}
   .pl{clip-path:none;border:1px solid #24557d}
   #prev{display:none!important}
-  #hv{left:50%;top:auto;bottom:130px;transform:translateX(-50%)}
+  #hv{left:2vw;right:2vw;width:auto;max-width:none;top:auto;bottom:130px;transform:none;box-sizing:border-box}   /* 手機: 面板撐滿螢幕寬,手牌排一列左右滑動 (原本 left:50% 讓面板只剩半個螢幕寬,牌被擠成直條) */
+  #hv .hvc{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+  #hv .hvc .card{flex:none;scroll-snap-align:start}
   #bSide{display:none}
   #tabs{display:none}   /* 手機用底下的分頁列,上面那排重複了 */
   #center{text-align:center!important}
@@ -1039,6 +1041,7 @@ function winnerSet(snap) {   // 勝利陣營包含哪些玩家 (含已死亡者)
   const w = snap.winner || "", s = new Set();
   if (!w) return s;
   const mm = /^P(\d+)$/.exec(w); if (mm) { s.add(+mm[1]); return s; }   // 無身分模式: 勝利者就是最後活著的那個人
+  if (snap.solo_winner != null) { s.add(snap.solo_winner); return s; }   // 曹植七輪後獨自勝利: 只有他算贏
   const roles = w.startsWith("主公") ? ["主公", "忠臣"] : w.startsWith("反賊") ? ["反賊"] : w.startsWith("內奸") ? ["內奸"] : [];
   snap.players.forEach(p => { if (roles.includes(p.role) && (p.role !== "內奸" || p.alive !== false)) s.add(p.idx); });   // 內奸沒有隊友: 只有存活的那位算贏
   return s;

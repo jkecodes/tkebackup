@@ -65,9 +65,13 @@ def slot_of(c):
 class ProAgent(LeveledAgent):
     """第 5 級: 用實戰機器人的優先度與戰術取代第 4 級的出牌 / 選牌判斷。"""
 
-    def __init__(self):
+    # 難度 1~5 都是這個最強電腦: 越簡單,「隨機亂出牌 / 該響應卻不響應」的機率越高 (極強 5 級完全不失誤)
+    ERR = {1: (0.45, 0.30), 2: (0.28, 0.18), 3: (0.16, 0.10), 4: (0.08, 0.05), 5: (0.0, 0.0)}   # (亂出牌機率, 響應失誤機率)
+
+    def __init__(self, level=5):
         super().__init__(level=4)
-        self.level = 5
+        self.level = 5   # 內部判斷一律照最強電腦;難度只影響下面的失誤率
+        self.err_level = max(1, min(5, int(level)))
         self._tries = {}
         self._dg_want = None
 
@@ -212,6 +216,10 @@ class ProAgent(LeveledAgent):
     def act(self, g, p, options):
         if not options:
             return None
+        if g.rng.random() < self.ERR[self.err_level][0]:   # 失誤: 隨機亂出一張 (或直接結束)
+            ok = [k for k, (c, _t) in enumerate(options) if getattr(c, "orig", None) is None or c.orig in p.hand]
+            i = g.rng.randrange(len(ok) + 1)
+            return None if i == len(ok) else ok[i]
         self.update_lethal(g, p)
         if self._tries.get("turn") != g.turn_id:
             self._tries = {"turn": g.turn_id}
@@ -732,6 +740,8 @@ class ProAgent(LeveledAgent):
 
     # ------------------------------------------------------------ 響應
     def respond(self, g, p, need, cands, ctx):
+        if need in ("閃", "殺", "桃") and not (need == "桃" and ctx.get("target") is p) and g.rng.random() < self.ERR[self.err_level][1]:   # 失誤: 該響應卻不出 (自己瀕死時不失手)
+            return None
         if need in ("殺", "閃", "火攻", "借刀殺人", "青龍追擊") and cands:
             if need == "借刀殺人" and self.attitude(g, p, ctx["victim"]) >= 0:
                 return None

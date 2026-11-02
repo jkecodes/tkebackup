@@ -297,7 +297,7 @@ def snapshot(m, viewer, since_log, since_th, peek):
     show_thoughts = show_all or over or peek
     logs = g.logs[since_log:]
     out = {
-        "ready": True, "round": g.round, "cur": g.cur.idx, "winner": g.winner, "over": over,
+        "ready": True, "round": g.round, "cur": g.cur.idx, "winner": g.winner, "solo_winner": getattr(g, "solo_winner", None), "over": over,
         "deck": len(g.deck), "discard": len(g.discard), "discard_top": card_dict(g.discard[-1]) if g.discard else None,
         "discard_chain": [_chain_dict(c, w) for c, w in _chain_cards(g)[-10:]], "discard_chain_off": max(0, len(_chain_cards(g)) - 10),
         "reveal": ({"title": g.last_reveal[0], "cards": [{"who": w, "card": card_dict(c)} for w, c in g.last_reveal[1] if c]} if g.last_reveal else None),

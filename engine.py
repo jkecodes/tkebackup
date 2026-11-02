@@ -1753,7 +1753,12 @@ class Game:
             if p.equip[a] and p.equip[b]:   # 兩格都滿了: 問要換掉哪一件
                 i = p.agent.choose_option(self, p, "換裝", [f"換掉 {p.equip[a]!r}", f"換掉 {p.equip[b]!r}"])
                 slot = (a, b)[i if i in (0, 1) else 0]
-        p.hand.remove(getattr(card, "orig", card))   # 手牌當裝備 (張遼): 實際從手牌拿走的是原本那張
+        _o = getattr(card, "orig", card)
+        if _o in p.hand:
+            p.hand.remove(_o)
+        elif card in p.hand:
+            p.hand.remove(card)
+        # 手牌當裝備 (張遼): 實際從手牌拿走的是原本那張
         old = p.equip[slot]
         if old:
             self.discard.append(getattr(old, "orig", old))
