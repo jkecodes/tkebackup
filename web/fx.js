@@ -297,7 +297,7 @@
     const touchOnly = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);   // 手機 / iPad 裝不了 Windows / Mac 版,不顯示下載按鈕
     if (!/Electron/i.test(navigator.userAgent) && !touchOnly) {   // 網頁版: 引導下載桌面版 (在桌面版裡不顯示)
       const d = document.createElement("button"); d.id = "bDl"; d.textContent = "⬇ 下載桌面版"; d.title = "到 GitHub 下載 Windows / Mac 本地版";
-      d.onclick = () => window.open("https://github.com/jkemusic/Threekingdoms/releases/latest", "_blank", "noopener");
+      d.onclick = () => window.open("https://github.com/jkemusic/Three-Kingdoms-Evolution/releases/latest", "_blank", "noopener");
       top.insertBefore(d, b);
     }
   });

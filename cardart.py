@@ -1168,4 +1168,8 @@ def svg_role(name, bg="classic", lg="", art=""):
 
 
 import hashlib as _hl
-VER = _hl.md5(open(__file__, "rb").read()).hexdigest()[:8]   # 卡面程式的版本碼: 加在圖片網址後面,圖改了瀏覽器就會重新下載 (不會看到舊圖)
+try:
+    VER = _hl.md5(open(__file__, "rb").read()).hexdigest()[:8]
+except OSError:   # 打包成 exe 後原始碼不在磁碟上: 用版本號當版本碼
+    from version import VERSION as _V
+    VER = _hl.md5(_V.encode()).hexdigest()[:8]   # 卡面程式的版本碼: 加在圖片網址後面,圖改了瀏覽器就會重新下載 (不會看到舊圖)

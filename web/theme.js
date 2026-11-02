@@ -432,7 +432,7 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
 .role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}
 /* ===== 新頭像框 (15) ===== */
 .fr-rookie{--fb:linear-gradient(135deg,#e8f1ff,#6fb3ff 45%,#2b6fd8 75%,#cfe3ff);box-shadow:0 0 0 1px #fff,0 0 6px rgba(111,179,255,.7)}
-.fr-ink{--fb:linear-gradient(135deg,#050505,#2b3a2f 55%,#0c0c0c);box-shadow:0 0 0 1px #c9a24a,0 0 6px rgba(201,162,74,.5)}
+.fr-ink{--fb:radial-gradient(circle,#0a0a0a 55%,#34483a 78%,#16201a);box-shadow:0 0 0 1px #c9a24a,0 0 6px rgba(201,162,74,.5)}
 .fr-blossom{--fb:linear-gradient(135deg,#ffe3f0,#ff7fb5 55%,#ffc2dc);box-shadow:0 0 7px rgba(255,130,180,.7)}
 .fr-frost{--fb:linear-gradient(135deg,#ffffff,#9fe8ff 45%,#4aa8ff 75%,#e6fbff);box-shadow:0 0 8px rgba(150,230,255,.85)}
 .fr-forest{--fb:linear-gradient(135deg,#d8ff9a,#2f8f3a 50%,#0f4a22 80%,#8be06b);box-shadow:0 0 6px rgba(90,200,90,.6)}
@@ -452,6 +452,8 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
 .fr-crystal{box-shadow:0 0 8px rgba(200,220,255,.85)}
 .avw.fr-galaxy::before{background:radial-gradient(circle at 20% 25%,#fff 0 1px,transparent 2px),radial-gradient(circle at 75% 20%,#fff 0 1px,transparent 2px),radial-gradient(circle at 60% 80%,#cfe 0 1px,transparent 2px),radial-gradient(circle at 15% 70%,#fff 0 1px,transparent 2px),linear-gradient(135deg,#1a0f4a,#6a2bd1 50%,#0a1a5a);animation:frtw 2.2s ease-in-out infinite alternate}
 .fr-galaxy{box-shadow:0 0 8px rgba(120,90,255,.8)}
+.avw.fr-heartbeat::before{background:linear-gradient(135deg,#ffc2d9,#ff2e63 50%,#ffc2d9);animation:frtw .9s ease-in-out infinite alternate}
+.fr-heartbeat{box-shadow:0 0 9px rgba(255,60,110,.85)}
 .avw.fr-lava::before{background:linear-gradient(100deg,#1a0500,#ff4a00,#ffcf3a,#ff4a00,#1a0500,#ff4a00);background-size:300% 100%;animation:frwave 2.6s linear infinite}
 .fr-lava{box-shadow:0 0 9px rgba(255,90,0,.85)}
 .avw.fr-yinyang::before{background:conic-gradient(#fff 0 50%,#000 50% 100%);animation:frspin 6s linear infinite}

@@ -1346,7 +1346,7 @@ class Manager:
                     partial = max(1, round(wrp * rw * 0.4))   # 平手: 加分,但只有贏的 40% (不算勝場、連勝不變)
                 lrp = lrp * Profiles.loss_tier(rps.get(tok, 0))   # 分段式期望值: 依自己結算前的段位調整輸的扣分
                 wrp, lrp = max(1, round(wrp * rw)), max(1, round(lrp * rl))
-                r = PROFILES.award(tok, won, pl._char.name, pl.role, wx, ranked, wrp, {"practice": bool(self.cfg.get("practice")), "hp": pl.hp, "alive": pl.alive, "rounds": g.round, "n": len(g.players), "noroles": noroles, "dmg": pl.dmg_total, "sha": pl.sha_n,
+                r = PROFILES.award(tok, won, pl._char.name, pl.role, wx, ranked, wrp, {"practice": bool(self.cfg.get("practice")), "hp": pl.hp, "alive": pl.alive, "rounds": g.round, "n": len(g.players), "noroles": noroles, "dmg": pl.dmg_total, "heal": pl.healed, "sha": pl.sha_n,
                                                                                                                   "maxhand": pl.max_hand, "chain11": pl.chain11, "wei": pl.wei_n, "same": len(g.players) >= 2 and len({q._char.name for q in g.players}) == 1}, lrp, secs=time.time() - getattr(self, "game_t0", time.time()), draw=draw, partial=0 if multi else partial, no_gain=multi)
                 if r:
                     d, b, a = r

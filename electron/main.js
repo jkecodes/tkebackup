@@ -56,7 +56,7 @@ async function backToLocal() {
 }
 
 // ---------- 檢查更新: 對 GitHub 問最新版本,有新版就提示 (不會自動安裝,按「前往下載」開啟下載頁) ----------
-const REPO = "jkemusic/Threekingdoms";
+const REPO = "jkemusic/Three-Kingdoms-Evolution";
 function getJson(url) {
   return new Promise(resolve => {
     const req = require("https").get(url, { headers: { "User-Agent": "sgs-sim", Accept: "application/vnd.github+json" }, timeout: 8000 }, res => {
@@ -167,8 +167,15 @@ function startServer() {
   } else {   // 開發: 直接跑原始碼
     server = spawn(process.platform === "win32" ? "python" : "python3", [path.join(__dirname, "..", "server.py")].concat(args), { env, windowsHide: true });
   }
-  server.stdout.on("data", () => {}); server.stderr.on("data", () => {});
-  server.on("exit", code => { server = null; if (!quitting && code) dialog.showErrorBox("伺服器已停止", "內建伺服器結束了 (代碼 " + code + ")。請重新開啟程式。"); });
+  let errTail = "";   // 伺服器崩潰時把最後的錯誤訊息一起顯示 / 存檔,才知道是什麼原因
+  server.stdout.on("data", () => {}); server.stderr.on("data", d => { errTail = (errTail + d).slice(-1500); });
+  server.on("exit", code => {
+    server = null;
+    if (!quitting && code) {
+      try { fs.writeFileSync(path.join(app.getPath("userData"), "server-error.log"), errTail); } catch (e) {}
+      dialog.showErrorBox("伺服器已停止", "內建伺服器結束了 (代碼 " + code + ")。請重新開啟程式。" + (errTail ? "\n\n" + errTail.split("\n").filter(Boolean).slice(-6).join("\n") : ""));
+    }
+  });
 }
 
 function stopServer() {
@@ -226,6 +233,9 @@ async function createWindow() {
   if (!remote) startServer();
   win = new BrowserWindow({ width: 1280, height: 860, title: "進化三國", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0e0f11", webPreferences: { preload: path.join(__dirname, "preload-main.js"), contextIsolation: true } });
   Menu.setApplicationMenu(buildMenu());
+  win.webContents.on("before-input-event", (e, input) => {   // F11 全螢幕 (選單被隱藏時快捷鍵也要能用)
+    if (input.type === "keyDown" && input.key === "F11") { e.preventDefault(); win.setFullScreen(!win.isFullScreen()); }
+  });
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
   try {
     if (remote) await win.loadURL(remote);

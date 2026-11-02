@@ -110,6 +110,7 @@ class Player:
         self.alias: list = []         # 化身 / 暫時獲得的武將 (左慈/公孫淵)
         self.disguise: list = []      # 偽裝成的武將 (一回合)
         self.dg_flip = False          # 偽裝的那張武將牌是否翻面 (本尊是否翻面看 flipped)
+        self.healed = 0   # 成就統計: 整場回復的體力總量
         self.dmg_total = self.sha_n = self.max_hand = 0   # 成就統計: 整場造成的傷害 / 打出或使用的殺數 / 手牌最多張數
         self.chain11 = False           # 成就: 接出第 11 個以上的連鎖
         self.wei_n = 0                 # 成就: 整場使用「偽」的次數
@@ -737,7 +738,9 @@ class Game:
 
     def heal(self, p, n=1):
         if p.hp < p.maxhp:
+            old = p.hp
             p.hp = min(p.maxhp, p.hp + n)
+            p.healed += p.hp - old
             self.log(f"HEAL|{p.idx}|{n}")   # 給前端特效 / 音效用的隱藏行
             p._char.on_healed(self, p)
 
@@ -776,9 +779,11 @@ class Game:
                 if c:
                     self.discard_card(q, c, played=True)
                     if c.name == "酒":
-                        tgt.hp += max(2, q.char.jiu_heal(self, q))   # 酒救人: 回 2 點 (跟桃一樣,不夠還是瀕死)
+                        amt = max(2, q.char.jiu_heal(self, q))   # 酒救人: 回 2 點 (跟桃一樣,不夠還是瀕死)
                     else:
-                        tgt.hp += q.char.peach_heal(self, q)
+                        amt = q.char.peach_heal(self, q)
+                    tgt.hp += amt
+                    tgt.healed += amt
                     self.log(f"HEAL|{tgt.idx}|1")
                     self.log(f"  {q.name} 對 {tgt.name} 使用 {c} -> 體力 {tgt.hp}")
                     if q is not tgt:
