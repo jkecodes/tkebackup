@@ -32,7 +32,7 @@ def _fn(n):   # 紀錄裡的牌名一律用圖鑑全名
 
 _CV = {"桃": 10, "無": 9, "無懈": 8, "閃": 7, "殺": 6, "酒": 4}  # 丈八蛇矛挑最不重要的牌用
 NATURE_ARMOR = {"火": "火盾", "雷": "雷盾", "冰": "冰盾"}
-HARM_CARDS = {"降雷", "殺", "決", "火攻", "順", "過", "樂", "兵", "毒", "草", "拋", "笑", "鴻", "轉", "弱"}
+HARM_CARDS = {"降雷", "殺", "決", "火攻", "順", "過", "樂", "兵", "毒", "草", "拋", "笑", "鴻", "轉", "弱", "漁"}
 HELP_CARDS = {"投", "強"}
 BASIC_NAMES = {"殺", "閃", "桃", "酒"}
 NO_SKILL = Char()  # 翻面時使用: 沒有任何技能
@@ -245,6 +245,7 @@ class Game:
         self.exec_depth = 0
         self.chain_all = set()          # 想在「每一個動作」都被問要不要接連鎖的真人座位 (其他人: 只有牌指定到自己才問)
         self._chain_asked = set()
+        self.eyes = []                  # 坐收漁利: [{"owner", "tgt", "turn"}] 目標這個回合每使用一張錦囊,owner 抽 1 張
         self.dmg_hook_depth = 0
         self.chain_view = []            # 連鎖演示: 這條連鎖實際打出的牌 / 發動的技能 (不含被棄掉的牌)
         self.chain_used: set = set()    # 本連鎖已發動過的技能 (玩家 idx, 技能名)
@@ -582,6 +583,9 @@ class Game:
             for q in askers:
                 if not (q.alive and tgt.alive and (src is None or src.alive)):
                     continue
+                if n - shield <= 0:   # 打出弱化後傷害變 0: 不用再問
+                    self._dmg_ctx = None
+                    return n
                 opts = [(c, t) for c, t in self.play_options(q) if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出")]
                 reacts, vname = self._reaction_cands(tgt) if q is tgt and hasattr(q.agent, "_ask") and self.__dict__.get("_pre_react") is None else ([], None)   # 真人受傷: 反 / 調 / 占 也列在同一個詢問裡 (電腦照舊在 damage_reactions 決定)
                 if not opts and not reacts:
@@ -607,6 +611,7 @@ class Game:
                     return n
                 self.new_chain()
                 self.link(f"{q.name} 在傷害結算前連鎖使用 ⚡{c}" + (f" (對 {t.name})" if hasattr(t, "name") else ""))
+                self._announced = True   # 這一行已經寫過「連鎖使用 ⚡牌」了,execute 不要再寫一次 (紀錄 / 動畫不重複)
                 self.execute(q, c, t)
                 self.after_play(q, c)
                 if src is not None:
@@ -685,12 +690,17 @@ class Game:
             self.after_play(tgt, c if c.kind == "trick" else ViewCard(cname, "", "trick", c))   # 反 / 調 / 占 也是錦囊: 鄧艾 / 崔琰 / 曹沖等「有人使用錦囊」的技能要觸發
             if not tgt.alive:
                 return 0
-            if self.wuxie_contest(tgt, tgt, cname, False):
-                continue
-            if cname == "反":
+            v = None
+            if cname == "反":   # 先選好對象並寫進紀錄,才問大家要不要無懈
                 victims = [q for q in self.alive_players() if q is not tgt]
                 if victims:
                     v = tgt.agent.choose_target(self, tgt, "反", victims)
+                    self.log(f"  {tgt.name} 對 {v.name} 使用 反擊")
+            side = self.pick_side(tgt) if cname == "調" else None   # 調虎離山也一樣: 先選方向再問無懈
+            if self.wuxie_contest(tgt, tgt, cname, False):
+                continue
+            if cname == "反":
+                if v is not None:
                     self.log(f"  傷害改由 {v.name} 承受")
                     self.damage(tgt, v, (raw if raw is not None else n) * (2 if tgt.char.fan_double else 1), nature=None)   # 反擊: 傷害來源變成你,從「原始傷害」用你的流星錘 / 武將加成 / 強化 / 弱化重新算 (不是拿已經乘過的數字再乘);張昭加倍,轉出去變成無屬性
                     return 0
@@ -701,10 +711,10 @@ class Game:
                     self.log("  占卜: 判定到錦囊牌,傷害抵銷")
                     return 0
             elif cname == "調":
-                order = self.side_order(tgt, self.pick_side(tgt))
+                order = self.side_order(tgt, side)
                 for _ in range(40):   # 繞一圈 (別人依序,最後輪到使用者自己) 都出了閃就再繞一圈,直到有人沒出閃
                     for q in order + [tgt]:
-                        if q.alive and not self.need_response(q, "閃", {"attacker": tgt}):
+                        if q.alive and not self.need_response(q, "閃", {"attacker": tgt, "group": "調"}):
                             if q is tgt:
                                 self.log(f"  {tgt.name} 沒出閃,承受原本的傷害")
                                 return n   # 輪到自己也沒閃: 原本的傷害照受 (不再觸發一次反應)
@@ -782,8 +792,9 @@ class Game:
                         amt = max(2, q.char.jiu_heal(self, q))   # 酒救人: 回 2 點 (跟桃一樣,不夠還是瀕死)
                     else:
                         amt = q.char.peach_heal(self, q)
-                    tgt.hp += amt
-                    tgt.healed += amt
+                    gain = max(0, min(amt, tgt.maxhp - tgt.hp))   # 體力不能超過上限 (上限 1 被酒救會變 2/1)
+                    tgt.hp += gain
+                    tgt.healed += gain
                     self.log(f"HEAL|{tgt.idx}|1")
                     self.log(f"  {q.name} 對 {tgt.name} 使用 {c} -> 體力 {tgt.hp}")
                     if q is not tgt:
@@ -930,7 +941,7 @@ class Game:
             if not (tgt.alive and p.alive):
                 return voided
             opts = [(c, t) for c, t in self.play_options(tgt)
-                    if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出")]
+                    if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出", "漁")]
             if tgt.char.name == "呂布" and p is not tgt:   # 呂布被指定時,也能在這個時機發動「無效全場一回合」
                 opts += [(c, t) for c, t in tgt.char.skill_options(self, tgt) if getattr(c, "name", "") == "呂布-無效全場"]
             if not opts:
@@ -979,13 +990,14 @@ class Game:
                 voided = voided or self.void
                 continue
             self.link(f"{tgt.name} 對 {p.name} 的{_fn(card.name)}連鎖使用 ⚡{c}")
+            self._announced = True   # 這一行已經寫過「連鎖使用 ⚡牌」了,execute 不要再寫一次 (紀錄 / 動畫不重複)
             self.execute(tgt, c, t)
             self.after_play(tgt, c)
         return voided
 
     def chain_all_window(self, p, card, tgt):
         """「全部都問」模式: 別人每打出一張牌,選了這個模式的真人都有機會接連鎖使用 ⚡ (強 / 弱 / 降雷 / 孤 / 出)。"""
-        if not self.chain_all or self.exec_depth > 2 or getattr(card, "name", "") in ("無懈", "強", "弱", "降雷", "孤", "出"):
+        if not self.chain_all or self.exec_depth > 2 or getattr(card, "name", "") in ("無懈", "強", "弱", "降雷", "孤", "出", "漁"):
             return
         from view import full_name
         for q in self.order_from(p):
@@ -993,7 +1005,7 @@ class Game:
                 continue
             self._chain_asked.add((id(card), q.idx))
             opts = [(c, t) for c, t in self.play_options(q)
-                    if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出")]
+                    if not isinstance(c, SkillAct) and c.name in ("強", "弱", "降雷", "孤", "出", "漁")]
             if not opts or not p.alive:
                 continue
             vt = [x.name for x in ([tgt] if isinstance(tgt, Player) else [x for x in tgt if isinstance(x, Player)] if isinstance(tgt, (tuple, list)) else []) if x is not p]
@@ -1003,6 +1015,7 @@ class Game:
             c, t = opts[i]
             self.new_chain()
             self.link(f"{q.name} 對 {p.name} 的{_fn(card.name)}連鎖使用 ⚡{c}")
+            self._announced = True   # 這一行已經寫過「連鎖使用 ⚡牌」了,execute 不要再寫一次 (紀錄 / 動畫不重複)
             self.execute(q, c, t)
             self.after_play(q, c)
 
@@ -1046,6 +1059,7 @@ class Game:
                 c, t = opts[i]
                 self.new_chain()
                 self.link(f"{q.name} 連鎖使用 ⚡{c} (對 {t.name})")
+                self._announced = True   # 這一行已經寫過「連鎖使用 ⚡牌」了,execute 不要再寫一次 (紀錄 / 動畫不重複)
                 self.execute(q, c, t)
                 self.after_play(q, c)
                 acted = True
@@ -1220,6 +1234,9 @@ class Game:
                     opts += [(c, t) for t in self.alive_players()]
             elif n == "降雷":
                 opts += [(c, t) for t in self.alive_players()]
+            elif n == "漁":   # 每個回合自己最多出一張
+                if getattr(p, "_eye_turn", None) != self.turn_id:
+                    opts += [(c, t) for t in alive_others]
             elif n == "偽":
                 opts.append((c, None))   # 同一回合可以偽裝多次 (每次換成另一位)
             elif n == "聲":
@@ -1247,6 +1264,27 @@ class Game:
             opts = [o for o in opts if isinstance(o[0], SkillAct) or getattr(getattr(o[0], "orig", o[0]), "kind", "") != "trick"]
         return opts
 
+    def _eye_watch(self, p):
+        """p 使用了一張錦囊 (曹沖同一套算法: 重鑄不算): 盯著 p 的坐收漁利,擁有者抽 1 張。"""
+        for e in list(self.eyes):
+            if e["turn"] != self.turn_id:
+                self.eyes.remove(e)
+            elif e["tgt"] is p and e["owner"].alive:
+                self.log(f"  坐收漁利: {p.name} 使用錦囊,{e['owner'].name} 抽 1 張")
+                self.draw(e["owner"], 1)
+
+    def _eye_start(self, owner, tgt):
+        """坐收漁利生效: 這條連鎖上排在前面、目標已經使用的錦囊也算,先補抽;之後到回合結束前每用一張再抽 1 張。"""
+        if not owner.alive or not tgt.alive:
+            return
+        recast = self.__dict__.get("_recast_ids", ())
+        n = sum(1 for c, who in self.chain_view
+                if who == tgt.idx and not isinstance(c, (tuple, dict)) and getattr(c, "kind", "") == "trick" and id(c) not in recast)
+        self.eyes.append({"owner": owner, "tgt": tgt, "turn": self.turn_id})
+        self.log(f"  坐收漁利: {tgt.name} 到這個回合結束前,每使用一張錦囊 {owner.name} 就抽 1 張" + (f";這條連鎖上他已經用了 {n} 張,先抽 {n} 張" if n else ""))
+        if n:
+            self.draw(owner, n)
+
     def tricks_this_turn(self, p):
         tk = getattr(p, "_trk", None)
         return tk[1] if tk and tk[0] == self.turn_id else 0
@@ -1266,6 +1304,9 @@ class Game:
         self.use_sha(p, t, view)
 
     def after_play(self, p, card):
+        if self.__dict__.get("_last_recast") is card:   # 鐵索連環重鑄: 不算使用錦囊
+            self._last_recast = None
+            return
         real = getattr(card, "orig", card)
         if isinstance(card, ViewCard) and card.kind == "trick":   # 手牌當錦囊 (陳群 4 血當突襲…): 算錦囊牌,曹沖 / 鄧艾等「有人使用錦囊」的技能要觸發
             real = card
@@ -1297,6 +1338,10 @@ class Game:
                 return False
         if card.name == "出" and (tgt[2].char.immune_delayed or "出" in tgt[2].char.block_names):
             return False
+        if isinstance(tgt, tuple) and card.name in ("聲", "借", "轉"):   # 兩個對象的錦囊: 關興這類「不能成為錦囊對象」的人,不能被指定 (聲: 兩個人都算;借 / 轉: 第一個人)
+            for t in (tgt[:2] if card.name == "聲" else tgt[:1]):
+                if isinstance(t, Player) and t is not p and t.char.blocks_target(self, t, card):
+                    return False
         if card.name in ("借", "轉"):
             t = tgt[0] if isinstance(tgt, tuple) else tgt
             if t.char.equip_safe:
@@ -1341,7 +1386,7 @@ class Game:
         from types import SimpleNamespace
         if trick != "突":
             for q in valid:   # 每位被指定的人先有機會接連鎖用 ⚡弱 / 降雷 (例如替自己弱化飢餓的傷害)
-                if q.alive and p.alive:
+                if q.alive and p.alive and not (cc is not None and (id(cc), q.idx) in self._chain_asked):   # 「全部都問」模式出牌時已經問過他了,不用再問第二次
                     self.sha_window(p, q, SimpleNamespace(name=trick), "使用了" + {"南": "南蠻入侵", "萬": "萬箭齊發", "突": "突襲"}.get(trick, trick))
         done = False
         cyc = valid + [p] if trick == "突" and valid else valid   # 突襲: 別人依序出殺,最後輪到出牌者自己也要出
@@ -1399,7 +1444,9 @@ class Game:
 
     def _execute(self, p, card, tgt, _repeat=False):
         n = card.name
-        self.new_chain()
+        ann = self.__dict__.pop("_announced", False)   # 連鎖視窗已經寫過這張牌的連鎖行: 不重開連鎖、不重複寫
+        if not ann:
+            self.new_chain()
         if getattr(card, "kind", "") not in ("weapon", "armor", "horse") and card.name not in DELAYED and not _repeat:   # 只有需要效果處理的牌進連鎖 (裝備、延時錦囊放下去時不算)
             self.chain_view.append((card, p.idx))
         if not isinstance(card, SkillAct):
@@ -1407,7 +1454,8 @@ class Game:
         vs = [tgt] if isinstance(tgt, Player) else [x for x in tgt if isinstance(x, Player)] if isinstance(tgt, (tuple, list)) else []
         vs = [x for x in vs if x is not p]
         at = f"對 {'、'.join(x.name for x in vs)} " if vs and not isinstance(card, SkillAct) and card.kind in ("basic", "trick") else ""   # 先寫出對象,別人才知道要不要接連鎖 / 出無懈
-        self.link(f"{p.name} {at}使用 {card}")
+        if not ann:
+            self.link(f"{p.name} {at}使用 {card}")
         if isinstance(card, SkillAct):
             self.cur_card = self.cur_user = None   # 不要沿用上一張牌 (否則響應提示會寫成上一張牌的名字)
             if isinstance(tgt, Player) and tgt is not p:   # 武將技能指定到的人,也能接連鎖用 ⚡弱 / 降雷
@@ -1422,23 +1470,32 @@ class Game:
         self.cur_user = p
         real = getattr(card, "orig", card)
         vtrick = isinstance(card, ViewCard) and card.kind == "trick"   # 手牌當錦囊使用: 也算一張錦囊 (曹沖: 超過一張扣血)
-        d = self.stats["cards_played"]
+        recast = False
+        if n == "鐵":   # 先問橫置還是重鑄: 重鑄不算使用錦囊 (曹沖計數 / 有人使用錦囊的技能都不觸發)
+            self._tie_mode = p.agent.choose_option(self, p, "鐵索連環", ["橫置 / 重置 最多兩名角色", "重鑄 (棄掉這張,再抽 1 張)"])
+            if self._tie_mode != 1:
+                self._tie_targets = p.agent.choose_chain(self, p)
+                if not self._tie_targets:   # 選了橫置卻沒選對象: 視為重鑄
+                    self._tie_mode = 1
+            recast = self._tie_mode == 1
+        d =self.stats["cards_played"]
         d[n] = d.get(n, 0) + 1
         p.played += 1
         if n == "偽":
             p.wei_n += 1
         for q in list(self.alive_players()):
             q.char.on_card_used(self, q, p, card)
-        if real.kind == "trick" or vtrick:
+        if (real.kind == "trick" or vtrick) and not recast:
             p.turn_flags["tricks"] = p.turn_flags.get("tricks", 0) + 1
             tk = getattr(p, "_trk", None)
             if tk is None or tk[0] != self.turn_id:
                 tk = p._trk = [self.turn_id, 0]
             tk[1] += 1
+            self._eye_watch(p)   # 坐收漁利: 被盯上的人使用錦囊,盯他的人抽牌
             if tk[1] > 1 and self.aura("one_card"):   # 曹沖: 一回合只能用 1 張錦囊,每超過一張 -1 點體力
                 cc = next((q for q in self.alive_players() if q.char.one_card), None)
                 self.log(f"  {cc.name if cc else ''}[曹沖] {p.name} 這回合第 {tk[1]} 張錦囊,超過 1 張,扣 1 點體力 (可閃)")
-                if not (p.alive and self.need_response(p, "閃", {"attacker": cc})):
+                if not (p.alive and self.need_response(p, "閃", {"attacker": cc, "cao_n": tk[1]})):
                     self.damage(cc, p, 1, _bonus=False, _mods=False)   # 來源是曹沖 (場上有曹沖技能的人),只標來源,不吃武器 / 強弱加成
         if real is not card:
             p.char.on_view_used(self, p, card)
@@ -1484,7 +1541,7 @@ class Game:
             return
         if not _repeat:
             self._spend(p, real)
-        if card.kind == "trick" and isinstance(tgt, Player) and tgt is not p and n not in ("降雷", "強", "弱", "無懈"):
+        if card.kind == "trick" and isinstance(tgt, Player) and tgt is not p and n not in ("降雷", "強", "弱", "無懈", "漁"):
             if self.sha_window(p, tgt, card) and card.kind == "trick":   # 被指定的錦囊: 目標也能接連鎖使用 ⚡ (呂布發動無效 → 這張沒有效果)
                 self.log(f"  呂布「無效」: {card} 沒有效果")
                 return
@@ -1609,6 +1666,11 @@ class Game:
                         q.hand.append(c)
         elif n == "降雷":
             self._thunder_body(p, tgt)
+        elif n == "漁":
+            p._eye_turn = self.turn_id   # 被無懈也算出過了
+            self.log(f"{p.name} 對 {tgt.name} 使用 坐收漁利")
+            if not self.wuxie_contest(p, tgt, "漁", True):
+                self._eye_start(p, tgt)
         elif n == "偽":
             self.log(f"{p.name} 使用 偽裝")
             if not self.wuxie_contest(p, p, "偽", False):
@@ -1688,15 +1750,22 @@ class Game:
                     if not p.char.gu_no_loss:
                         self.damage(None, p, 1)
         elif n == "鐵":
-            mode = p.agent.choose_option(self, p, "鐵索連環", ["橫置 / 重置 最多兩名角色", "重鑄 (棄掉這張,再抽 1 張)"])
+            mode = self.__dict__.pop("_tie_mode", None)
+            if mode is None:
+                mode = p.agent.choose_option(self, p, "鐵索連環", ["橫置 / 重置 最多兩名角色", "重鑄 (棄掉這張,再抽 1 張)"])
             if mode == 1:   # 重鑄: 不算使用,不能被無懈
+                self.__dict__.pop("_tie_targets", None)
+                self.__dict__.setdefault("_recast_ids", set()).add(id(card))
+                self._last_recast = card   # after_play 看到這張就不觸發「有人使用錦囊」
                 self.log(f"{p.name} 重鑄 鐵索連環")
                 self.draw(p, 1 + p.char.tie_extra)
                 self.log("  重鑄: 抽1張")
             else:
                 self.log(f"{p.name} 使用 鐵索連環")
             if mode != 1 and not self.wuxie_contest(p, p, "鐵", False):
-                targets = p.agent.choose_chain(self, p)
+                targets = self.__dict__.pop("_tie_targets", None)
+                if targets is None:
+                    targets = p.agent.choose_chain(self, p)
                 if not targets:
                     self.draw(p, 1 + p.char.tie_extra)
                     self.log("  沒有選擇對象: 改為重鑄,抽1張")
@@ -1876,7 +1945,7 @@ class Game:
             self.clear_chain_view()
             i = p.agent.act(self, p, opts)
             if i is None:
-                if jiu_must and jiu_ask < 3:   # 不能只喝酒不出殺: 再問一次 (最多 3 次,免得卡死)
+                if jiu_must and hasattr(p.agent, "_ask") and jiu_ask < 50:   # 不能只喝酒不出殺: 一直問到出殺為止 (50 次只是防呆,免得斷線卡死)
                     jiu_ask += 1
                     continue
                 if not jiu_must or hasattr(p.agent, "_ask"):
@@ -1906,7 +1975,7 @@ class Game:
                     break
                 opts = list(q.char.offturn_options(self, q))
                 opts += [(c, t) for c, t in self.play_options(q)
-                         if not isinstance(c, SkillAct) and c.name in ("轉", "強", "弱", "出", "降雷")]
+                         if not isinstance(c, SkillAct) and c.name in ("轉", "強", "弱", "出", "降雷", "漁")]
                 if not opts:
                     break
                 i = q.agent.choose_offturn(self, q, opts, cur, when)

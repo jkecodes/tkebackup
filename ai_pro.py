@@ -613,7 +613,7 @@ class ProAgent(LeveledAgent):
             return None
         if n in ("閃電", "偽裝"):
             return None
-        if n in ("反擊", "調虎離山", "占卜", "無懈可擊", "隔岸觀火", "孤注一擲", "弱化"):
+        if n in ("反擊", "調虎離山", "占卜", "無懈可擊", "隔岸觀火", "孤注一擲", "弱化", "坐收漁利"):   # 坐收漁利: 只在敵人回合開始時用 (ai.py choose_offturn)
             return None
         # ---- 裝備
         sl = slot_of(real(c))

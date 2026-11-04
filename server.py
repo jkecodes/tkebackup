@@ -44,7 +44,7 @@ def _check_behind():
         if BEHIND[0]: print("GitHub 上有新版本: 落後 %d 個提交 (git pull 可更新)" % BEHIND[0])
     except Exception:
         pass
-if BETA:
+if BETA and __name__ == "__main__":   # 只有真的啟動伺服器才去 GitHub 問 (被別的程式 import / 多程序模擬時不要每個程序都 git fetch)
     threading.Thread(target=_check_behind, daemon=True).start()
 os.makedirs(DATA, exist_ok=True)
 
@@ -104,7 +104,7 @@ class Profiles:
     RANKS = [("青銅", 0), ("白銀", 150), ("黃金", 400), ("白金", 700), ("鑽石", 1100), ("大師", 1500), ("傳說", 2000)]
     OLD_RANKS = (0, 100, 250, 450, 700, 1000, 1400)   # v1.7.57 以前的門檻: 啟動時把舊積分照比例換算到新門檻,每個人的段位維持不變
     WIN_RP = {1: 10, 2: 18, 3: 25, 4: 32, 5: 40}   # 段位模式贏: 依電腦難度加分 (全真人 25)
-    RANK_DIFF = {"青銅": 1, "白銀": 2, "黃金": 2, "白金": 3, "鑽石": 3, "大師": 4, "傳說": 4}   # 段位模式: 電腦難度跟著段位 (弱 / 中 / 強 / 很強)
+    RANK_DIFF = {"青銅": 1, "白銀": 2, "黃金": 3, "白金": 3, "鑽石": 4, "大師": 4, "傳說": 5}   # 段位模式: 電腦難度跟著段位 (弱 / 中 / 強 / 很強 / 極強)
     LOSS_RP = {1: 10, 2: 18, 3: 25, 4: 32, 5: 40}   # 段位模式輸: 扣分 = 同難度贏的加分 (所以勝率超過約 50% 積分才會往上走;全真人 25;最低 0 分)
     # 身分係數: 依人數和身分的實測勝率 (電腦對電腦各 300 場) 調整輸贏分數,讓每個身分的期望分數接近 0
     # (贏的倍率 = 輸贏賠率的平方根,限制在 0.7~2.5;輸的倍率 = 贏的倍率 / 賠率,限制在 0.5~1.2;主公和忠臣同一陣營,用同一組)
@@ -1866,7 +1866,7 @@ def load_roster():
         if line.startswith("### "):
             cur = line[4:].strip()
             skills[cur] = []
-        elif cur and re.match(r"\d+\.", line):
+        elif cur and (re.match(r"\d+\.", line) or line.startswith("(")):   # 「(最多8血)」這類備註也要顯示
             skills[cur].append(line)
     out = []
     for name, cls in ROSTER.items():
@@ -2040,7 +2040,8 @@ class Handler(BaseHTTPRequestHandler):
                 from view import card_img
                 from card_desc import DESC
                 from view import full_name
-                cat = {k: {"desc": v, "full": full_name(k), "img": {c: card_img(k, c) for c in ("紅", "黑")}} for k, v in DESC.items()}
+                from card_desc import body as _body
+                cat = {k: {"desc": _body(v), "pre": (v[:1] + " ") if v[:1] in "⚡⏳" else "", "full": full_name(k), "img": {c: card_img(k, c) for c in ("紅", "黑")}} for k, v in DESC.items()}
                 for nat in ("火", "冰", "雷"):
                     cat[nat + "殺"] = {"desc": nat + "屬性殺: " + DESC["殺"], "full": nat + "殺", "img": {c: card_img(nat, c) for c in ("紅", "黑")}, "nat": True}
                 import cards as _cd
@@ -2049,7 +2050,7 @@ class Handler(BaseHTTPRequestHandler):
                 _kd.update({x[0]: "armor" for x in _cd.ARMOR}); _kd.update({x[0]: "horse" for x in _cd.HORSE}); _kd.update({k: "basic" for k in ("殺", "閃", "桃", "酒", "火殺", "冰殺", "雷殺")})
                 for k, e in cat.items():
                     e["tp"] = type_label("殺" if e.get("nat") else k, _kd.get(k, "trick"))
-                    e["bolt"] = "⚡" if e["desc"].startswith("⚡") else ""
+                    e["bolt"] = "⚡" if DESC.get(k, "").startswith("⚡") else ""
                     from view import range_label
                     e["rng"] = range_label(k)
                     e["land"] = k in ("樂", "兵", "草", "閃電", "毒")
@@ -2061,7 +2062,13 @@ class Handler(BaseHTTPRequestHandler):
                 from i18n_cards import exact
                 import i18n_skills
                 lg = q.get("lang", ["en"])[0]
-                d = exact(lg); d.update(i18n_skills.exact(lg))
+                d = exact(lg)
+                from card_desc import body as _b, body_tr as _bt
+                for _k, _v in list(d.items()):   # 顯示用的效果文拿掉了符號和牌名: 譯文也要有對應的版本
+                    _k2 = _b(_k)
+                    if _k2 != _k and _k2 not in d:
+                        d[_k2] = _bt(_k, _v)
+                d.update(i18n_skills.exact(lg))
                 return self._send(200, d)
             if path == "/api/roster":
                 return self._send(200, {"chars": ROSTER_DATA, "roles": {str(k): v for k, v in ROLES.items()}})

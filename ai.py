@@ -547,9 +547,13 @@ class HeuristicAgent(RandomAgent):
                 return i
             if n == "強" and t is cur and att(cur) >= 1 and len(cur.hand) >= 3:
                 return i
+            if n == "漁" and t is cur and att(cur) <= -1 and len(cur.hand) >= 3:   # 坐收漁利: 敵人手牌多、回合剛開始 → 盯著他
+                return i
         return None
 
     def choose_option(self, g, p, skill, labels):
+        if skill == "趙雲-棄牌或扣血":   # 體力夠高 (或手上有閃) 才吃扣血,不然乖乖棄牌
+            return 1 if p.hp >= 4 or (p.hp == 3 and any(c.name == "閃" for c in p.hand)) else 0
         if skill == "發憤圖強-少棄":
             # 手上有反 / 調 又有敵人: 故意少棄 1~2 張吃傷害,再用反 / 調把傷害轉給敵人 (留 2 點體力以上才敢)
             self._fa_reflect = None

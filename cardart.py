@@ -393,6 +393,14 @@ def _():
     return die(70, 112, -12, [(-12, -12), (12, 12), (0, 0), (-12, 12), (12, -12)]) + die(130, 150, 10, [(-10, -10), (10, 10), (0, 0)]) + star4(138, 76, 14, "#ffd24a")
 
 
+@reg("漁")
+def _():
+    fish = ('<g transform="translate(112 160) rotate(-14)"><path d="M-44 0 Q-6 -30 40 0 Q-6 30 -44 0Z" fill="#ff9a4a" stroke="#10141c" stroke-width="4"/><path d="M40 0 L66 -20 L60 0 L66 20Z" fill="#ff7a2a" stroke="#10141c" stroke-width="4"/>'
+            '<circle cx="-22" cy="-5" r="5" fill="#10141c"/><path d="M-6 -14 Q4 0 -6 14" ' + st("#10141c", 3) + '/></g>')
+    return ('<line x1="40" y1="206" x2="150" y2="48" stroke="#8a6a3a" stroke-width="7" stroke-linecap="round"/><path d="M150 48 Q176 90 124 138" ' + st("#e8dcc0", 3) + '/>'
+            + fish + '<path d="M14 214 q16 -12 32 0 t32 0 t32 0 t32 0 t32 0 t32 0" ' + st("#7fe0ff", 6) + '/>' + star4(48, 80, 13, "#ffd24a"))
+
+
 @reg("投")
 def _():
     return (peach(64, 108, .55) + '<circle cx="140" cy="116" r="30" fill="#8a5ad0" stroke="#3a1a70" stroke-width="4"/><path d="M140 86 q8 -14 20 -12" ' + st("#59b24a", 5) + '/>'
@@ -879,7 +887,7 @@ EN_SEAL = {   # 英文介面: 印章字改成英文牌名前三個字母 (撞名
     "殺": "SLA", "火": "FIR", "冰": "ICE", "雷": "THU", "閃": "DOD", "桃": "PEA", "酒": "WIN", "順": "STE", "過": "DIS", "反": "CNT", "調": "DIV", "占": "DVN", "南": "BAR", "萬": "ARR",
     "無": "WFL", "無懈": "NUL", "轉": "SWP", "突": "RAI", "桃園": "GAR", "樂": "CMP", "聲": "FNT", "增": "RNF", "決": "DUE", "強": "EMP", "弱": "WKN", "火攻": "ATK", "借": "BOR",
     "飢": "FAM", "草": "SCA", "閃電": "LTN", "降雷": "CAL", "發": "RSV", "毒": "PSN", "兵": "STV", "偽": "DSG", "出": "SUR", "拋": "BRK", "未": "PLN", "笑": "DGR", "鴻": "HGM",
-    "隔": "WCH", "孤": "ALL", "投": "RTN", "五": "HAR", "鐵": "CHN", "八卦陣": "8TG", "仁王盾": "REN", "藤甲": "RAT", "緩衝盾": "BUF", "雷盾": "TSH", "火盾": "FSH", "冰盾": "ISH",
+    "隔": "WCH", "孤": "ALL", "漁": "GAI", "投": "RTN", "五": "HAR", "鐵": "CHN", "八卦陣": "8TG", "仁王盾": "REN", "藤甲": "RAT", "緩衝盾": "BUF", "雷盾": "TSH", "火盾": "FSH", "冰盾": "ISH",
     "+1馬": "+1", "-1馬": "-1", "諸葛連弩": "ZHU", "孔雀羽扇": "FAN", "青龍偃月刀": "GDB", "寒冰劍": "FRS", "方天畫戟": "SKY", "流星錘": "MET", "麒麟弓": "KIR", "青釭劍": "BLU",
     "丈八蛇矛": "SER", "貫石斧": "AXE"}
 
@@ -1029,6 +1037,22 @@ def back(bk="classic"):
 _cache = {}
 
 
+def _bolt_badge(out, name):
+    """⚡ 即時型錦囊: 卡面右上角蓋一個閃電徽章 (不用看字也知道可以連鎖使用)。"""
+    try:
+        from card_desc import DESC
+    except Exception:
+        return out
+    if not DESC.get(name, "").startswith("⚡") or "</svg>" not in out or 'class="bolt"' in out:
+        return out
+    m = _re.search(r'viewBox="0 0 (\d+) (\d+)"', out)
+    W = int(m.group(1)) if m else 200
+    badge = (f'<g class="bolt" transform="translate({W - 34} 58)"><circle r="16" fill="#1a1208" stroke="#ffb02e" stroke-width="3"/>'
+             '<path d="M3 -11 L-7 2 H-1 L-4 11 L8 -3 H1Z" fill="#ffd24a" stroke="#7a4a00" stroke-width="1" stroke-linejoin="round"/></g>')
+    i = out.rfind("</svg>")
+    return out[:i] + badge + out[i:]
+
+
 def svg(name, bg="classic", small=False, lg="", art=""):
     """某張牌的卡面 SVG;沒有這張牌回傳 None。bg = 卡面風格 id;small = 很小的縮圖 (像素風不做降解析度,不然太小會看不到圖)。"""
     if name not in E:
@@ -1041,6 +1065,7 @@ def svg(name, bg="classic", small=False, lg="", art=""):
         if ink:   #所有卡面風格都用同一套水墨圖 (只有邊框 / 色調不同)
             out = _ink_overlay(out, name, bool(small), KIND.get(name) == "delay")
             out = _ink_frame(out, key[1], KIND.get(name) == "delay", name)
+        out = _bolt_badge(out, name)
         _cache[key] = out
     return _cache[key]
 

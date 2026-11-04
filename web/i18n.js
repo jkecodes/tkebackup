@@ -125,7 +125,7 @@ const W = [
   ["鐵索連環", "Iron Chain", "鉄索連環"], ["桃園結義", "Peach Garden", "桃園結義"], ["桃園", "Peach Garden", "桃園"], ["無懈可擊", "Nullify", "無懈可撃"], ["無懈", "Nullify", "無懈"],
   ["南蠻入侵", "Barbarians", "南蛮入侵"], ["萬箭齊發", "Arrow Barrage", "万箭斉発"], ["無中生有", "Windfall", "無中生有"], ["順手牽羊", "Steal", "順手牽羊"],
   ["過河拆橋", "Dismantle", "過河拆橋"], ["借刀殺人", "Borrowed Blade", "借刀殺人"], ["樂不思蜀", "Complacency", "楽不思蜀"], ["兵糧寸斷", "Starvation", "兵糧寸断"],
-  ["閃電", "Lightning", "閃電"], ["降雷", "Thunder Call", "降雷"], ["發憤圖強", "Resolve", "発憤図強"], ["孤注一擲", "All-In", "孤注一擲"],
+  ["閃電", "Lightning", "閃電"], ["降雷", "Thunder Call", "降雷"], ["發憤圖強", "Resolve", "発憤図強"], ["孤注一擲", "All-In", "孤注一擲"], ["坐收漁利", "Fisherman's Gain", "漁夫の利"],
   ["五穀豐登", "Harvest", "五穀豊穣"], ["草木皆兵", "Scarecrow Panic", "草木皆兵"], ["偽裝", "Disguise", "偽装"], ["鴻門宴", "Hongmen Feast", "鴻門宴"],
   ["未雨綢繆", "Plan Ahead", "未雨綢繆"], ["笑裏藏刀", "Hidden Dagger", "笑裏蔵刀"], ["隔岸觀火", "Watch the Fire", "隔岸観火"], ["投桃報李", "Return the Favor", "投桃報李"],
   ["拋磚引玉", "Lure with Brick", "拋磚引玉"], ["出其不意", "Surprise Move", "出其不意"], ["聲東擊西", "Feint", "聲東撃西"], ["增兵", "Reinforce", "増援"],
@@ -332,7 +332,7 @@ const SHORT = {   // 戰報裡的牌名簡稱 -> [English, 日本語]
   "借": ["Borrowed Blade", "借刀殺人"], "飢": ["Famine", "飢餓"], "草": ["Scarecrow Panic", "草木皆兵"], "閃電": ["Lightning", "閃電"], "降雷": ["Thunder Call", "降雷"],
   "發": ["Resolve", "発憤図強"], "毒": ["Poison", "毒"], "兵": ["Starvation", "兵糧寸断"], "偽": ["Disguise", "偽装"], "出": ["Surprise Move", "出其不意"],
   "拋": ["Lure with Brick", "拋磚引玉"], "未": ["Plan Ahead", "未雨綢繆"], "笑": ["Hidden Dagger", "笑裏蔵刀"], "鴻": ["Hongmen Feast", "鴻門宴"], "隔": ["Watch the Fire", "隔岸観火"],
-  "孤": ["All-In", "孤注一擲"], "投": ["Return the Favor", "投桃報李"], "五": ["Harvest", "五穀豊穣"], "鐵": ["Iron Chain", "鉄索連環"],
+  "孤": ["All-In", "孤注一擲"], "漁": ["Fisherman's Gain", "漁夫の利"], "投": ["Return the Favor", "投桃報李"], "五": ["Harvest", "五穀豊穣"], "鐵": ["Iron Chain", "鉄索連環"],
 };
 const SKILLS = [   // 〈武將-技能〉 的技能名
   [/^丁奉-棄置(.+)抽牌$/, "discard $1 & draw", "$1を捨てて引く"], [/^丈八蛇矛-雙牌當殺$/, "two cards as Slash", "2枚を殺として使う"],
@@ -595,11 +595,11 @@ function cardItems(cat) {   // 卡牌圖鑑的每一格 (教學彈窗與側欄�
   for (const [k, v] of Object.entries(cat)) {
     if (/^[火冰雷]殺$/.test(k)) continue;
     const eq = /^(裝備|武器)[(（]/.test(v.desc);   // 武器 / 防具 / 坐騎: 名字用牌名,說明保留「裝備(類型)」
-    const full = eq ? k : (v.desc.match(/^([^:：]+)[:：]/) || [0, k])[1];
+    const full = eq ? k : (v.pre || "") + (v.full || k);
     const nm = lang !== "zh" && !eq && SHORT[k] ? ((full.match(/^[⚡⏳]\s*/) || [""])[0]) + SHORT[k][lang === "en" ? 0 : 1] : T(full);
-    const ds = eq ? T(v.desc) : (exact[v.desc] ? exact[v.desc].replace(/^[⚡⏳]\s*/, "") : T(v.desc.replace(/^[^:：]+[:：]\s*/, "")));
+    const ds = eq ? T(v.desc) : (exact[v.desc] ? exact[v.desc] : T(v.desc));
     out.push({ text: (k + " " + full + " " + v.desc + " " + nm + " " + ds).toLowerCase(),
-      node: el("div", { class: "cgi" }, el("span", { class: "bigw", style: "flex:none" }, el("img", { src: v.img["紅"] || v.img["黑"], loading: "lazy" }), v.tp ? el("span", { class: "tp", text: T(v.tp) }) : null),
+      node: el("div", { class: "cgi" }, el("span", { class: "bigw", style: "flex:none" }, el("img", { src: (typeof gi === "function" ? gi : x => x)(v.img["紅"] || v.img["黑"]), loading: "lazy" }), v.tp ? el("span", { class: "tp", text: T(v.tp) }) : null),
         el("div", {}, el("b", { text: nm }), el("div", { class: "cgd", text: ds }))) });
   }
   return out;

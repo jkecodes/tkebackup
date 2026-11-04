@@ -44,7 +44,7 @@ def card_img(name, color):
     return _img_cache[key]
 
 
-from card_desc import DESC
+from card_desc import DESC, body as desc_body
 
 
 def _skill_img(name):
@@ -115,7 +115,7 @@ def card_dict(c):
          "img": card_img(getattr(real, "nature", None) or real.name, real.color),
          "text": f"{bolt_name(c.name)[:1] if bolt_name(c.name)[:1] == '⚡' else ''}{c.color}{getattr(c, 'nature', None) or ''}{full_name(c.name)}",
          "full": full_name(c.name), "bolt": "⚡" if DESC.get(c.name, "").startswith("⚡") else "", "nat": getattr(real, "nature", None) or "",
-         "desc": DESC.get(real.name, ""), "tp": type_label(real.name, c.kind), "rng": range_label(real.name), "land": cardart.KIND.get(real.name) == "delay"}
+         "desc": desc_body(DESC.get(real.name, "")), "tp": type_label(real.name, c.kind), "rng": range_label(real.name), "land": cardart.KIND.get(real.name) == "delay"}
     if getattr(real, "nature", None):
         d["desc"] = f"{real.nature}屬性殺: " + DESC["殺"]
     if isinstance(c, ViewCard):
@@ -125,8 +125,8 @@ def card_dict(c):
         d["as_full"], d["real_full"] = bolt_name(c.name), bolt_name(real.name)
         if c.kind == "armor":   # 手牌當作防具裝備 (張遼): 詳細資訊顯示防具本身,並註明原本是哪張牌
             d["img"] = card_img(c.name, c.color)
-            d["desc"] = DESC.get(c.name, "") + (f"\n(張遼: 由 {c.color}{full_name(real.name)} 當作{c.name}裝備,離開裝備欄會變回原本的牌)"
-                                                  f"\n原本的牌 — {full_name(real.name)}: {DESC.get(real.name, '')}")
+            d["desc"] = desc_body(DESC.get(c.name, "")) + (f"\n(張遼: 由 {c.color}{full_name(real.name)} 當作{c.name}裝備,離開裝備欄會變回原本的牌)"
+                                                  f"\n原本的牌 — {full_name(real.name)}: {desc_body(DESC.get(real.name, ''))}")
             d["tp"], d["rng"] = type_label(c.name, c.kind), range_label(c.name)
     return d
 

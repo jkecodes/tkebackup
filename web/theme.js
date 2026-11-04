@@ -1093,7 +1093,7 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
         });
         const artRow = isBg ? h("div", { style: { display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap", alignItems: "center" } }, h("span", { class: "meta", text: "卡圖:" }), ...[["", "新"], ["svg", "舊"]].map(([v, n]) => h("button", {
           class: "tile" + ((sel.cardart || "") === v ? " sel" : ""), "aria-pressed": (sel.cardart || "") === v ? "true" : "false", style: { padding: "6px 12px" },
-          onclick: async () => { await post({ cardart: v }); render(); if (typeof poll === "function") poll(true); } }, h("span", { class: "tn", text: n })))) : null;
+          onclick: async () => { await post({ cardart: v }); render(); if (typeof poll === "function") poll(true); setTimeout(() => { try { const cd = document.getElementById("cd"); if (cd && cd.classList.contains("on") && window.SGS_I18N) SGS_I18N.renderCardPane(); } catch (e) {} }, 700); } }, h("span", { class: "tn", text: n })))) : null;
         const genRow = isBg ? h("div", { style: { display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap", alignItems: "center" } }, h("span", { class: "meta", text: "武將圖:" }), ...[["", "新"], ["old", "舊"]].map(([v, n]) => h("button", {
           class: "tile" + ((sel.genart || "") === v ? " sel" : ""), "aria-pressed": (sel.genart || "") === v ? "true" : "false", style: { padding: "6px 12px" },
           onclick: async () => { await post({ genart: v }); if (typeof setRosterArt === "function") setRosterArt(v); render(); } }, h("span", { class: "tn", text: n })))) : null;

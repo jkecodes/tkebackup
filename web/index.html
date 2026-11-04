@@ -86,6 +86,7 @@ html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px
 .prchip b{font-size:15px}
 .prchip.on{color:#ffd24a;border-color:#ffd24a;background:rgba(255,210,74,.12)}
 .card .rg,.bigw .rg{position:absolute;right:5px;bottom:4px;z-index:1;min-width:20px;box-sizing:border-box;text-align:center;background:rgba(14,28,52,.92);color:#fff;border:2px solid #8fc8ff;border-radius:4px;font-weight:800;font-size:13px;line-height:1;padding:3px 5px;pointer-events:none}.bigw .rg{font-size:18px;min-width:28px;right:12px;bottom:12px;padding:4px 7px}
+.card .zn{position:absolute;left:4px;bottom:26px;z-index:2;background:rgba(14,60,40,.95);color:#fff;border:2px solid #4fd08a;border-radius:3px;font-size:11px;font-weight:800;line-height:1;padding:2px 5px;pointer-events:none;white-space:nowrap}
 .card .tp,.bigw .tp,.lcb .tp{position:absolute;left:4px;bottom:4px;z-index:1;background:rgba(80,8,10,.9);color:#fff;border:2px solid #e23a3a;border-radius:3px;font-size:10px;font-weight:700;line-height:1;padding:2px 5px;pointer-events:none;white-space:nowrap}
 .bigw{display:block;position:relative;line-height:0}.bigw .tp{font-size:14px;left:10px;bottom:10px;padding:3px 7px}
 #log .lcb{position:relative;display:inline-block;line-height:0}#log .lcb .tp{font-size:8px;left:2px;bottom:2px;padding:1px 3px;border-width:1px}
@@ -258,8 +259,8 @@ html .seg button.on,html .seg button.on:hover{background:linear-gradient(180deg,
 .lrow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(160deg,rgba(18,40,72,.9),rgba(8,18,36,.9));border:1px solid #1f4468;border-radius:10px;padding:10px 14px;margin:8px 0}
 .lrow b{letter-spacing:.05em}
 
-#hv{position:fixed;left:calc((100% - 390px) / 2);top:50%;transform:translate(-50%,-50%);max-width:min(96vw,1000px);background:linear-gradient(160deg,rgba(19,38,74,.97),rgba(8,18,36,.97));border:1px solid var(--accent);box-shadow:var(--glow),0 14px 36px rgba(0,0,0,.7);padding:10px 14px;z-index:14;display:none;border-radius:4px}
-#hv .hvh{margin-bottom:6px}
+#hv{position:fixed;left:calc((100% - 390px) / 2);top:50%;transform:translate(-50%,-50%);max-width:min(96vw,1000px);background:linear-gradient(160deg,rgba(19,38,74,.97),rgba(8,18,36,.97));border:1px solid var(--accent);box-shadow:var(--glow),0 14px 36px rgba(0,0,0,.7);padding:10px 14px;z-index:14;display:none;border-radius:4px;max-height:calc(100vh - 110px);overflow-y:auto;box-sizing:border-box;overscroll-behavior:contain}
+#hv .hvh{margin-bottom:6px;position:sticky;top:-10px;z-index:1;background:rgba(14,30,60,.97);padding:4px 0}   /* 手牌太多: 面板可以上下捲動,標題列固定在上面 */
 #hv .hvh b{color:var(--accent);font-size:15px}
 #hv .hvc{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 #hv .card{width:84px;height:120px;cursor:pointer}#hv .card.land{width:84px;height:120px}   /* 手牌預覽: 橫的牌 (延時錦囊) 也用直的外框,圖轉 90 度 (.rot) */
@@ -736,7 +737,7 @@ img.av{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:
         <div id="thl"></div>
       </div>
       <div class="pane" id="cd"><input type="text" id="cdq" placeholder="搜尋卡牌名稱或說明…" style="width:100%;box-sizing:border-box;margin-bottom:6px"><div id="cdl"></div></div>
-      <div class="pane" id="ch"><input type="text" id="chq" placeholder="搜尋武將名稱或技能敘述…" style="width:100%;box-sizing:border-box;margin-bottom:6px"><div class="chars" id="chl"></div></div>
+      <div class="pane" id="ch"><input type="text" id="chq" placeholder="搜尋武將名稱或技能敘述…" style="width:100%;box-sizing:border-box;margin-bottom:6px"><div id="chfac" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"></div><div class="chars" id="chl"></div></div>
       <div class="pane" id="cc"><div id="cl"></div><div id="cin"><input id="ctext" type="text" maxlength="200" placeholder="輸入訊息,Enter 送出"><button id="csend" class="primary">送出</button></div></div>
     </div>
   </div>
@@ -859,6 +860,7 @@ function cardEl(c, cls, onclick, seat) {
     if (bg.startsWith("pixel")) setTimeout(() => { if (im.isConnected && im.clientWidth && im.clientWidth < 80) im.src = src + "&s=1"; }, 60);   // 像素風卡面用濾鏡降解析度,縮圖太小時改用不降解析度的版本
     e.append(h("div", {class: "lab", text: c.as ? (c.as_full || c.as) + "←" + (c.real_full || c.real) : (c.bolt || "") + c.color + (c.nat || "") + (c.full || c.name)}));
     if (c.tp) e.append(bg.startsWith("pixel") && c.tp.startsWith("⌛") ? h("div", {class: "tp"}, h("span", {class: "pxh"}), h("span", {text: c.tp.slice(1)})) : h("div", {class: "tp", text: c.tp}));   // 像素風: 沙漏也用像素圖
+    if (c.zone) e.append(h("div", {class: "zn", text: c.zone}));   // 這張牌其實在裝備區 (技能把裝備區的牌當別的牌用)
     if (c.rng) e.append(h("div", {class: "rg", title: "攻擊範圍 " + c.rng, text: c.rng})); }
   else e.textContent = c.text || c.name;
   if (onclick) e.onclick = onclick;
@@ -2046,7 +2048,7 @@ function openSetup() {
       sect("人數", "", nBox),
       sect("身分配置", "", varBox),
       sect("主公座位", "主公從哪個座位開始;身分會在開局時才揭曉", lordBox),
-      sect("電腦難度", "上面一排是一次調整全部電腦;每個座位也可以在下方「座位與武將」各自調整。段位模式打贏電腦加的積分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32;輸了扣的分數和同難度贏的加分一樣 (勝率超過約 50% 才會升)。同場有其他真人時,輸贏分數會依對手平均積分與你的差距調整 (最多 ±50%)。段位模式的電腦難度不能自己調,跟著入座玩家的平均段位走: 青銅 弱 / 白銀·黃金 中 / 白金·鑽石 強 / 大師·傳說 很強。", diffSeg = seg(diffLabels().map((t, k) => [k + 1, t]), st.diff, v => { st.diff = v; seatBox.querySelectorAll("select[data-dseat]").forEach(x => { x.value = String(v); keepD[x.dataset.dseat] = String(v); }); })),
+      sect("電腦難度", "上面一排是一次調整全部電腦;每個座位也可以在下方「座位與武將」各自調整。段位模式打贏電腦加的積分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 / 極強 +40;輸了扣的分數和同難度贏的加分一樣 (勝率超過約 50% 才會升)。同場有其他真人時,輸贏分數會依對手平均積分與你的差距調整 (最多 ±50%)。段位模式的電腦難度不能自己調,跟著入座玩家的平均段位走: 青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強。", diffSeg = seg(diffLabels().map((t, k) => [k + 1, t]), st.diff, v => { st.diff = v; seatBox.querySelectorAll("select[data-dseat]").forEach(x => { x.value = String(v); keepD[x.dataset.dseat] = String(v); }); })),
       sect("基礎體力上限", "所有武將的體力上限一起增減 (預設 4);原本就比較高或低的武將會保留差距。例如設 6,原本 4 血的武將變 6 血,原本 3 血的變 5 血", hpBox),
       sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變)", modeBox),
       sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限", rmBox),
@@ -2140,9 +2142,9 @@ function rankHelp() {   // 段位說明視窗: 位置固定在段位相關畫面
       h("h3", {style: {margin: "0 0 2px"}, text: "段位模式說明"}),
       sec("什麼是段位模式", p("段位模式是計分的對戰: 贏了加段位積分、輸了扣積分,積分決定你的段位。休閒模式積分不變,可以隨便玩。")),
       sec("段位表 (所需積分)", h("div", {}, chips, p("傳說以外每個段位又分 3 → 2 → 1 三小段,數字越小越高 (例如 黃金3 → 黃金2 → 黃金1 → 白金3)。"))),
-      sec("怎麼加分", p("打贏電腦依難度加分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 (多種難度取平均),全真人對戰 +25。連勝中每多贏一場,下一場多 +3,最多 +15;輸一場歸零。")),
+      sec("怎麼加分", p("打贏電腦依難度加分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 / 極強 +40 (多種難度取平均),全真人對戰 +25。連勝中每多贏一場,下一場多 +3,最多 +15;輸一場歸零。")),
       sec("怎麼扣分", p("輸了扣的分數和同難度贏的加分一樣,但依你的段位調整: 黃金以下 ×0.7、白金·鑽石 ×1.0、大師 ×1.15、傳說 ×1.3。所以段位越高越難爬 (損益兩平勝率約 41% → 50% → 53% → 57%,積分最低 0)。")),
-      sec("電腦難度", p("段位模式的電腦難度不能自己選,跟著你的段位走: 青銅 弱 / 白銀·黃金 中 / 白金·鑽石 強 / 大師·傳說 很強。")),
+      sec("電腦難度", p("段位模式的電腦難度不能自己選,跟著你的段位走: 青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強。")),
       sec("身分係數", p("每個身分的天生勝率不同,輸贏分數會依人數和身分調整 (內奸贏得最多、輸扣最少;勝率高的身分贏得少)。輸了但自己撐到最後,扣分打 8 折。")),
       sec("特殊情況", p("• 內奸撐到和主公單挑才輸: 算「次級勝利」,得贏分的 30%。\n• 平手 (超過回合上限): 得贏分的 40%,不算勝場、連勝不變。\n• 中途棄賽: 扣分 ×1.5。\n• 同場有其他真人: 依對手平均積分與你的差距調整 (最多 ±50%)。\n• 同一個網路有多個帳號在同一場: 這場不計分。")),
       sec("房間規則", p("段位模式武將全部隨機,基礎體力、主公座位、身分模式都固定,也不能開旁觀者看全部。打完之前不能開新遊戲 (可以先棄賽)。")),
@@ -2212,12 +2214,14 @@ function renderRankedLobby(snap) {   // 段位模式大廳: 每個人只能選�
     h("div", {style: {margin: "10px 0", display: "flex", gap: "8px", flexWrap: "wrap"}}, seated
       ? h("button", {type: "button", class: "primary", style: {minWidth: "150px"}, text: "⚔ 已參戰 (點擊取消)", onclick: watch})
       : h("button", {type: "button", class: "primary", style: {minWidth: "150px"}, text: "⚔ 我要參戰", onclick: join}),
-      inviteFriendsBtn(true), backBtn(true)),
+      inviteFriendsBtn(true), backBtn(true),
+      snap.is_host ? h("button", {type: "button", text: "↩ 返回新遊戲", title: "回到新遊戲設定畫面 (可以改成休閒模式或調整設定)", onclick: () => { S.setupOff = null; openSetup(); }}) : null),   // 房主專用
     rows,
     snap.is_host ? h("div", {class: "row"}, h("button", {class: "primary", text: "開始遊戲", onclick: async () => { const r = await api("/api/start", {}); if (r && r.ok === false && /[一-鿿]/.test(r.error || "")) toast(r.error); poll(true); }})) :
       h("div", {class: "meta", text: "👑 等待房主按下開始…" + (snap.host_name ? " (房主: " + snap.host_name + ")" : "")}))));
 }
 function renderLobby(snap) {
+  if (S.modalOpen === "setup") return;   // 房主正在看新遊戲設定: 不要被每次輪詢重畫的大廳蓋掉
   S.handKey = null;
   if (snap.picking) { if (snap.pick_left != null) S.pickEnd = Date.now() + snap.pick_left * 1000; const k = JSON.stringify({...snap, pick_left: 0}); if (S.pickKey !== k || S.modalOpen !== "lobby") { S.pickKey = k; renderPicking(snap); } return; }
   S.pickKey = null;
@@ -2251,10 +2255,17 @@ function renderLobby(snap) {
   M.append(h("div", {class: "modal"}, dlg));
 }
 
+let chFac = "";   // 側欄武將頁的勢力篩選 ("" = 全部)
 function renderChars() {
   const L = $("#chl"); L.textContent = "";
   const q = ($("#chq").value || "").trim().toLowerCase();
-  S.roster.filter(c => !q || (c.name + " " + c.faction + " " + c.skills.join(" ")).toLowerCase().includes(q)).forEach(c => L.append(h("div", {class: "cc"}, c.img ? h("img", {src: gi(c.img), loading: "lazy"}) : null,
+  const order = ["魏", "蜀", "吳", "群"], fr = f => { const i = order.indexOf(f); return i < 0 ? order.length : i; };
+  const facs = [...new Set(S.roster.map(c => c.faction))].sort((a, b) => fr(a) - fr(b));
+  const bar = $("#chfac"); bar.textContent = "";
+  ["", ...facs].forEach(f => bar.append(h("button", {text: f || "全部", class: chFac === f ? "primary" : "", style: {padding: "3px 10px"},
+    onclick: () => { chFac = f; renderChars(); }})));
+  S.roster.map((c, i) => [c, i]).sort((a, b) => fr(a[0].faction) - fr(b[0].faction) || a[1] - b[1]).map(x => x[0])
+    .filter(c => (!chFac || c.faction === chFac) && (!q || (c.name + " " + c.faction + " " + c.skills.join(" ")).toLowerCase().includes(q))).forEach(c => L.append(h("div", {class: "cc"}, c.img ? h("img", {src: gi(c.img), loading: "lazy"}) : null,
     h("b", {text: `${c.faction} ${c.name}`}), h("span", {class: "meta", text: ` ${c.maxhp}體力`}), c.skills.map(s => h("div", {text: s})))));
   if (!L.children.length) L.append(h("div", {class: "meta", text: "找不到符合的武將"}));
 }
@@ -2691,7 +2702,7 @@ function openSolo() {   // 單人模式: 開一個不公開的房間,直接和�
     body.append(h("div", {style: {fontWeight: 700}, text: "人數 (你 + 電腦)"}),
       seg([2, 3, 4, 5, 6, 7, 8, 9, 10].filter(x => st.ranked !== "ranked" || x >= 4).map(x => [x, x + " 人"]), st.n, v => { st.n = v; }),
       h("div", {style: {fontWeight: 700}, text: "電腦難度"}),
-      st.ranked === "ranked" ? h("div", {class: "meta", style: {margin: "4px 0 12px"}, text: "段位模式的電腦難度不能自己選,跟著你的段位走 (青銅 弱 / 白銀·黃金 中 / 白金·鑽石 強 / 大師·傳說 很強)"})
+      st.ranked === "ranked" ? h("div", {class: "meta", style: {margin: "4px 0 12px"}, text: "段位模式的電腦難度不能自己選,跟著你的段位走 (青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強)"})
         : seg(diffLabels().map((t, k) => [k + 1, "🤖 " + t]), st.diff, v => { st.diff = v; }),
       h("div", {style: {display: "flex", alignItems: "center", gap: "10px"}}, h("span", {style: {fontWeight: 700}, text: "模式"}), rankHelpBtn()),
       seg([["casual", "🎮 休閒模式"], ["ranked", "🏅 段位模式"]], st.ranked, v => { st.ranked = v; if (v === "ranked" && st.n < 4) st.n = 4; }),

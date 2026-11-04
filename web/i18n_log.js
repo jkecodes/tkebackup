@@ -190,7 +190,7 @@ window.SGS_LOG_TPL = [
 ["{} 對 {} 使用 笑", "{1} uses Hidden Dagger on {2}", "{1} が {2} に笑裏蔵刀を使用"],
 ["{} 對 {} 使用 轉", "{1} uses Swap on {2}", "{1} が {2} に装備交換を使用"],
 ["{} 對 {} 使用 過", "{1} uses Dismantle on {2}", "{1} が {2} に過河拆橋を使用"],
-["{} 對 {} 使用 降雷", "{1} uses Thunder Call on {2}", "{1} が {2} に降雷を使用"],
+["{} 對 {} 使用 降雷", "{1} uses Thunder Call on {2}", "{1} が {2} に降雷を使用"], ["{} 對 {} 使用 坐收漁利", "{1} uses Fisherman's Gain on {2}", "{1} が {2} に漁夫の利を使用"], ["坐收漁利: {} 使用錦囊,{} 抽 1 張", "Fisherman's Gain: {1} used a trick, {2} draws 1", "漁夫の利: {1} が錦囊を使用、{2} が1枚引く"], ["坐收漁利: {} 到這個回合結束前,每使用一張錦囊 {} 就抽 1 張", "Fisherman's Gain: until end of turn, {2} draws 1 each time {1} uses a trick", "漁夫の利: ターン終了まで、{1} が錦囊を使うたび {2} が1枚引く"], ["坐收漁利: {} 到這個回合結束前,每使用一張錦囊 {} 就抽 1 張;這條連鎖上他已經用了 {} 張,先抽 {} 張", "Fisherman's Gain: until end of turn, {2} draws 1 each time {1} uses a trick; {3} already used in this chain, draw {4} now", "漁夫の利: ターン終了まで、{1} が錦囊を使うたび {2} が1枚引く。この連鎖で既に {3} 枚使用、先に {4} 枚引く"],
 ["{} 對 {} 使用 順", "{1} uses Steal on {2}", "{1} が {2} に順手牽羊を使用"],
 ["{} 對 {} 使用 鴻", "{1} uses Hongmen Feast on {2}", "{1} が {2} に鴻門宴を使用"],
 ["{} 對 {} 使用 {}", "{1} uses {3} on {2}", "{1} が {2} に {3} を使用"],

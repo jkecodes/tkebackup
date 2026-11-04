@@ -521,8 +521,9 @@ class 趙雲(Char):
 
     def _run(self, g, p, t):
         p.turn_flags["zy"] = True
-        mode = p.agent.choose_mode(g, p, "趙雲", t)  # 趙雲選擇: 'discard' 令對方棄 1 張手牌 / 'damage' 令對方扣 1 點體力 (可閃)
-        if mode == "discard" and t.hand:
+        # 被指定的人自己選: 棄 1 張手牌,否則扣 1 點體力 (可閃)
+        pick = t.agent.choose_option(g, t, "趙雲-棄牌或扣血", ["棄 1 張手牌", "扣 1 點體力 (可閃)"]) if t.hand else 1
+        if pick == 0 and t.hand:
             c = t.agent.choose_discard(g, t, 1, list(t.hand))[0]
             g.discard_card(t, c)
             g.log(f"  {p.name}[趙雲] 令 {t.name} 棄 1 張手牌: {c}")
@@ -771,7 +772,7 @@ class 曹洪(Char):
     name, faction = "曹洪", "魏"
 
     def on_any_damaged(self, g, p, tgt, n):
-        if tgt is not p and g.trigger_ok(p, "曹洪-回血"):
+        if tgt is not p and p.hp < p.maxhp and g.trigger_ok(p, "曹洪-回血"):   # 滿血就不發動 (不然連鎖 / 特效白跑一次)
             g.link(f"{p.name}[曹洪] 有人受到 {n} 點傷害,回 {n} 點體力")
             g.heal(p, n)
 
@@ -1520,7 +1521,7 @@ class 曹沖(Char):
         p._char, user._char = user._char, p._char
         for q in (p, user):
             q.borrow, q.borrow2, q.alias, q.disguise = [], [], [], []   # 換了武將: 原本複製 / 化身 / 偽裝的狀態不帶過去
-            q.maxhp = q._char.maxhp
+            q.maxhp = max(1, q._char.maxhp + g.hp_offset) + (g.lord_bonus if q is g.lord else 0)   # 主公加成 / 難度調整跟著座位走,不跟武將
             q.hp = max(1, min(q.hp, q.maxhp))
         g.log(f"  交換完成: {p.name} / {user.name}")
 
@@ -1847,7 +1848,7 @@ class 關興(Char):
     immune_turn = -1
 
     def blocks_target(self, g, p, card):   # 別人的單一對象錦囊 (順 / 過 / 決 / 火攻 / 降雷 / 樂 / 兵…) 不能指定關興;強 / 弱 / 突 是 ⚡ 或全體牌,不算
-        return getattr(card, "kind", "") == "trick" and card.name not in ("強", "弱", "突")
+        return getattr(card, "kind", "") == "trick" and card.name not in ("強", "弱", "突", "南", "萬", "飢", "桃園", "五")   # 全體牌 (南蠻 / 萬箭 / 飢餓 / 桃園 / 五穀) 不是單一對象,對關興照常生效
 
     def offturn_options(self, g, p):
         if self.immune_turn == g.turn_id:

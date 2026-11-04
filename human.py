@@ -33,6 +33,14 @@ class HumanAgent:
         self.muted = {}   # 玩家選了「本輪不再詢問」的連鎖/別人回合發動選項: 簽名 -> 輪數
 
     def _ask(self, kind, prompt, options, mn=1, mx=1, timeout=None, default=None):
+        try:   # 選項裡的牌如果其實在自己的裝備區 (技能把裝備當別的牌用): 卡面標「裝備區」
+            me = self.mgr.game.players[self.seat]
+            eq = {c.id for c in me.equip_cards()} - {c.id for c in me.hand}
+            for o in options:
+                if isinstance(o, dict) and isinstance(o.get("card"), dict) and o["card"].get("id") in eq:
+                    o["card"]["zone"] = "裝備區"
+        except Exception:
+            pass
         return self.mgr.ask(self.seat, kind, prompt, options, mn, mx, timeout, default)
 
     @staticmethod
@@ -88,7 +96,9 @@ class HumanAgent:
         for k in ("attacker", "src", "source"):
             if need in ("閃", "殺") and isinstance(ctx.get(k), Player):
                 who, cc = ctx[k], getattr(g, "cur_card", None)
-                if who is p:   # 周倉: 沒有傷害來源 (閃電…) 受到傷害,打出等量的閃抵擋
+                if ctx.get("cao_n"):   # 曹沖: 一回合第 2 張起的錦囊,可以閃掉扣 1 點體力
+                    prompt = f"曹沖效果: 你這回合已使用第 {ctx['cao_n']} 張錦囊 (只能 1 張),要打出{need}嗎? (不出扣 1 點體力)"
+                elif who is p:   # 周倉: 沒有傷害來源 (閃電…) 受到傷害,打出等量的閃抵擋
                     prompt = f"你即將受到傷害,要打出{need}抵擋嗎? (每打出一張抵擋 1 點)"
                 elif ctx.get("group"):
                     prompt = f"{pname(who)} 使用 {full_name(ctx['group'])},要打出{need}嗎?"
@@ -104,6 +114,18 @@ class HumanAgent:
         if need in ("劉協棄牌", "夏侯淵給牌", "韓當棄牌", "袁術棄牌") and prompt and isinstance(ctx.get("source"), Player):   # 提示裡的「扣 1 點」要是算完對方強化 / 弱化的
             prompt = prompt.replace("扣 1 點", f"扣 {g.dmg_preview(ctx['source'], 1, tgt=p, bonus=need in ('劉協棄牌', '夏侯淵給牌'))} 點")
         lab = lambda c: ctext(c) + (f"  → 當作 {full_name(need)}" if need in ("閃", "殺", "桃", "酒") and getattr(c, "name", need) != need else "")   # 技能把這張牌當別的牌用 (關羽的桃當閃…): 選項上寫清楚
+        if need == "受傷響應":   # 手牌是靠技能當 反 / 調 / 占 用的: 每種用途各列一個選項,卡面和文字都寫「當作 X」
+            pairs = [(c, k) for c in cands for k in (g._react_kinds(p, c) or [getattr(c, "name", "")])]
+            opts = [self._copt(j, (f"{ctext(c)}  → 當作 {full_name(k)}" if c.name != k else ctext(c)),
+                               c if c.name == k else ViewCard(k, c.color, "trick", c, id=c.id)) for j, (c, k) in enumerate(pairs)]
+            opts.append(self._copt(len(pairs), "不出", None))
+            r = self._ask("respond", prompt or f"響應: {need}", opts)
+            if not r or r[0] >= len(pairs):
+                return None
+            c, k = pairs[r[0]]
+            if c.name != k:
+                g._react_pick = k
+            return c
         reacts = []   # 不閃就會受傷: ⚡ 反 / 調 / 占 一起問 [(手牌, 當成哪種)]
         if need == "閃" and ctx.get("react"):
             rc, _ = g._reaction_cands(p)
