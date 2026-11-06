@@ -312,14 +312,36 @@ CARDBACKS = [
     # 聲望限定
     {"id": "rn_void", "n": "轉生·虛空", "req": R(35)},
 ]
-_KINDS = _KINDS + (("cardbgs", CARDBGS), ("cardbacks", CARDBACKS))
+# 動畫特效 (進場 + 勝利 + 落敗 三段一組,全部玩家都看得到): 只能用聲望買。前端 anim.js 依 id 畫出來
+ANIMS = [
+    {"id": "", "n": "無動畫", "req": F()},
+    {"id": "ink", "n": "墨韻丹青", "req": R(40)},
+    {"id": "sakura", "n": "落櫻繽紛", "req": R(45)},
+    {"id": "thunder", "n": "驚雷破空", "req": R(55)},
+    {"id": "flame", "n": "赤壁烈焰", "req": R(60)},
+    {"id": "pixel", "n": "像素街機", "req": R(80)},
+    {"id": "bushi", "n": "武士", "req": R(70)},
+]
+# 玩家框 -> 搭配的動畫特效 (只是推薦,各自購買、各自選用,不綁定)
+BOX_ANIM = {
+    "charcoal": "ink", "ink": "ink", "scroll": "ink", "zen": "ink",
+    "samurai": "bushi", "tatami": "bushi",
+    "felt": "sakura", "jade": "sakura", "sakura": "sakura", "bamboo": "sakura",
+    "classic": "thunder", "thunder": "thunder", "ice": "thunder", "crystal": "thunder", "galaxy": "thunder", "neon": "thunder", "royal": "thunder",
+    "lava": "flame", "sunset": "flame", "gold": "flame",
+    "px_grass": "pixel", "px_dungeon": "pixel", "px_coin": "pixel", "px_lava": "pixel", "px_night": "pixel",
+}
+assert {b["id"] for b in BOXES} == set(BOX_ANIM), "每個玩家框都要有對應的動畫"
+_KINDS = _KINDS + (("cardbgs", CARDBGS), ("cardbacks", CARDBACKS), ("anims", ANIMS))
 
 
 def catalog():
     """前端用的目錄 (不含玩家資料)。"""
     def pack(L):
         return [{k: v for k, v in dict(x, req_text=req_text(x["req"])).items() if k != "old"} for x in L]
-    return {"tiers": TIER_NAMES, "themes": pack(THEMES), "frames": pack(FRAMES), "fx": pack(EFFECTS), "boxes": pack(BOXES), "cardbgs": pack(CARDBGS), "cardbacks": pack(CARDBACKS),
+    boxes = [dict(b, anim=BOX_ANIM.get(b["id"], "")) for b in pack(BOXES)]
+    anims = [dict(x, boxes=[b["id"] for b in BOXES if BOX_ANIM.get(b["id"]) == x["id"]]) for x in pack(ANIMS)]
+    return {"tiers": TIER_NAMES, "themes": pack(THEMES), "frames": pack(FRAMES), "fx": pack(EFFECTS), "boxes": boxes, "cardbgs": pack(CARDBGS), "cardbacks": pack(CARDBACKS), "anims": anims,
             "achs": [{"id": a[0], "n": a[1], "d": a[2]} for a in ACHIEVEMENTS]}
 
 

@@ -8,7 +8,7 @@ window.SGS_LOG_TPL = (window.SGS_LOG_TPL || []).concat([
 ["{}[曹沖] {} 這回合第 {} 張錦囊,超過 1 張,扣 1 點體力 (可閃)", "{1}[Cao Chong] {2} used trick #{3} this turn (over 1): loses 1 HP (dodgeable)", "{1}[曹沖] {2} は今ターン{3}枚目の錦囊(1枚超過): 体力-1(閃で防げる)"],
 ["{}[{}] {} 使用錦囊,扣 {} 點體力 (可閃)", "{1}[{2}] {3} used a trick: loses {4} HP (dodgeable)", "{1}[{2}] {3} が錦囊を使用、体力-{4}(閃で防げる)"],
 ["{}[{}] 回合開始: 其他人各棄 {} 張手牌,否則扣 {} 點體力", "{1}[{2}] turn start: everyone else discards {3} hand card(s) or loses {4} HP", "{1}[{2}] ターン開始: 他の全員は手札{3}枚を捨てるか体力-{4}"],
-["{}[{}] 與 {} 同顯: {} / {}", "{1}[{2}] reveals together with {3}: {4} / {5}", "{1}[{2}] {3} と同時に公開: {4} / {5}"],
+["{}[{}] 與 {} 同時亮牌: {} / {}", "{1}[{2}] reveals together with {3}: {4} / {5}", "{1}[{2}] {3} と同時に公開: {4} / {5}"],
 ["占卜: 判定到錦囊牌,傷害抵銷", "Divination: judged a trick, the damage is cancelled", "占卜: 錦囊を判定、ダメージを無効にする"],
 ["{} 使用 {}(←{})", "{1} uses {2} (converted from {3})", "{1} が {3} を {2} として使用"],
 ["{} 對 {} 使用 {}(←{})", "{1} uses {3} on {2} (converted from {4})", "{1} が {2} に {4} を {3} として使用"],

@@ -1052,7 +1052,9 @@ function rkEl(r, big) {   // 段位標籤 (例: 黃金2)
   const m = /^(★\d+) (.+)$/.exec(String(r)), base = m ? m[2] : String(r);   // Prestige: 「★2 青銅3」
   return h("span", {class: "rk rk-" + base.replace(/\d+$/, "") + (m ? " pres" : "") + (big ? " big" : ""), title: (m ? "轉生 " + m[1].slice(1) + " 次 · " : "") + "段位 " + base, text: base});   // 顯示不帶 ★N, 轉生次數由旁邊的「轉生 N」方框表示
 }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) window.__visAt = Date.now(); });   // 剛切回分頁: 這一瞬間湧進來的一批紀錄不播特效
 function setRoundTag(snap) {   // 左上角: 第幾輪 + 牌堆張數
+  if (window.SGS_ANIM) try { SGS_ANIM.onSnap(snap); } catch (e) {}   // 動畫特效 (進場 / 勝負): 所有人都看得到
   if (snap.over && !S.overSeen) { S.overSeen = true; [1500, 4000].forEach(t => setTimeout(loadProfile, t)); }   // 對局結束: 盡快讀檔案,有升降段就跳視窗
   if (!snap.over) S.overSeen = false;
   const t = $("#roundtag"); t.textContent = "";
@@ -1242,12 +1244,31 @@ function renderTable0(snap) {
 }
 
 /* ---------- 手牌與操作 ---------- */
+/* 通知: 排隊一則一則顯示 (間隔 450ms)、同時最多 3 則、同一則不重複、背景分頁不顯示,切回來才依序出現 (不會一次全部跳出來) */
+const TQ = { q: [], timer: null };
 function toast(t, kind) {
+  const key = (kind || "err") + "|" + t, box = document.getElementById("toasts");
+  if (TQ.q.some(x => x.key === key)) return;                                              // 同一則已經在排隊
+  if (box && [...box.children].some(c => c.dataset.k === key)) return;                    // 同一則正在顯示
+  TQ.q.push({ t, kind, key, ts: Date.now() });
+  if (TQ.q.length > 3) TQ.q.splice(0, TQ.q.length - 3);                                  // 排太多只留最新 3 則
+  toastPump();
+}
+function toastPump() {
+  if (document.hidden || TQ.timer) return;
+  let x; while ((x = TQ.q.shift()) && Date.now() - x.ts > 15000);                          // 太舊的 (超過 15 秒) 直接丟掉
+  if (!x) return;
+  showToast(x.t, x.kind, x.key);
+  TQ.timer = setTimeout(() => { TQ.timer = null; toastPump(); }, 450);
+}
+function showToast(t, kind, key) {
   let box = document.getElementById("toasts");
   if (!box) { box = h("div", {id: "toasts"}); document.body.append(box); }
-  const e = h("div", {class: "toast " + (kind || "err"), text: t}); box.append(e);
+  while (box.children.length >= 3) box.firstChild.remove();                                // 畫面上最多 3 則
+  const e = h("div", {class: "toast " + (kind || "err"), text: t}); e.dataset.k = key; box.append(e);
   fadeOut(e, kind ? 6000 : 2500);
 }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { document.querySelectorAll("#toasts .toast").forEach(e => e.remove()); toastPump(); } });   // 切回來: 清掉背景時沒收掉的舊通知,再依序顯示排隊中的
 function fadeOut(e, ms) {   // 通知到時間先淡出 (0.4 秒) 再移除,不要突然消失
   setTimeout(() => { e.classList.add("fadeout"); setTimeout(() => e.remove(), 420); }, ms);
 }
@@ -1500,7 +1521,7 @@ function renderPrompt0(snap) {
 document.addEventListener("sgs-lang", () => { for (const el of document.querySelectorAll("#log > [data-zh]")) { try { el.replaceChildren(...logNodes(el.dataset.zh)); } catch (e) {} } });   // 換語言: 戰報整行重畫
 function addLogs(lines) {
   const L = $("#log"), follow = $("#follow").checked;
-  const quiet = lines.length > 60;   // 中途加入 / 一次補大量紀錄時不播音效動畫
+  const quiet = lines.length > 60 || document.hidden || (Date.now() - (window.__visAt || 0) < 800 && lines.length > 6);   // 中途加入 / 一次補大量紀錄時不播音效動畫
   if (window.SGS_FX) SGS_FX.begin();
   for (const s0 of lines) {
     if (s0.charCodeAt(0) === 1) { if (window.SGS_FX) SGS_FX.hint(s0, quiet); continue; }   // 動畫用的隱藏行
@@ -1813,7 +1834,7 @@ function renderMembers() {   // 👥 房間成員: 每個人都看得到 (不只
       const r = await api("/api/transfer", {to: x.id});
       if (r.ok) { toast("房主已讓給 " + (r.name || "對方"), "host"); poll(true); } else toast("讓房主失敗: " + r.error);
     }}) : null,
-    S.amHost && x.id !== S.myWho ? h("button", {type: "button", text: "踢出", title: "踢出房間", class: "mb", onclick: async ev => { ev.stopPropagation();
+    S.amHost && !rkLive() && x.id !== S.myWho ? h("button", {type: "button", text: "踢出", title: "踢出房間", class: "mb", onclick: async ev => { ev.stopPropagation();
       if (!confirm("確定要把「" + (x.name || "未命名") + "」踢出房間嗎?")) return;
       const r = await api("/api/kick", {to: x.id});
       toast(r.ok ? "已踢出 " + r.name : "踢人失敗: " + (r.error || ""), r.ok ? "ok" : undefined);
@@ -1844,7 +1865,7 @@ function renderOnlineList() {
       h("div", {style: {fontWeight: 600}}, (x.host ? "👑 " : "") + (x.name || "未命名") + (x.id === S.myWho ? " (你)" : ""), " ", devEl(x.dev), rkp(x.lv)),
       x.spec || x.seat != null ? h("div", {class: "meta", text: x.spec ? "👁 觀戰者" : "座位 " + x.seat}) : null),
     x.id !== S.myWho && x.acc && window.SGS_FRIENDS ? friendBtn(x) : null,
-    S.amHost && x.id !== S.myWho ? h("button", {type: "button", text: "踢出", style: {padding: "2px 9px", fontSize: "12px"}, onclick: async () => {
+    S.amHost && !rkLive() && x.id !== S.myWho ? h("button", {type: "button", text: "踢出", style: {padding: "2px 9px", fontSize: "12px"}, onclick: async () => {
       if (!confirm("確定要把「" + (x.name || "未命名") + "」踢出房間嗎?")) return;
       const r = await api("/api/kick", {to: x.id});
       toast(r.ok ? "已踢出 " + r.name : "踢人失敗: " + (r.error || ""), r.ok ? "ok" : undefined);
@@ -2412,6 +2433,7 @@ function updNickBtn() { $("#bNick").textContent = "👤 " + (myNick() || "暱稱
 $("#bNick").onclick = () => { if (!S.nickLocked) showNickGate(true); };
 updNickBtn();
 if (myNick()) api("/api/nick", {name: myNick()});
+function rkLive() { return !!(S.snap && S.snap.ranked && S.snap.locked && !S.snap.over); }   // 段位局進行中 (房主不能踢人)
 function syncRanked(snap) {   // 段位局進行中: 不能開新遊戲,參戰的人可以棄賽
   const live = !!(snap.ranked && snap.locked && !snap.over);
   const bn = $("#bNew"); if (live && !snap.ranked_abandoned) { bn.disabled = true; bn.title = "段位模式打完之前不能開新遊戲 (可以先棄賽)"; }
@@ -2815,6 +2837,7 @@ $("#rname").onkeydown = e => { if (e.key === "Enter" && !e.isComposing && e.keyC
 <script src="/friends.js"></script>
 <script src="/lessons.js"></script>
 <script src="/theme.js"></script>
+<script src="/anim.js"></script>
 <script src="/i18n_log.js"></script>
 <script src="/i18n_ui.js"></script>
 <script src="/i18n_log2.js"></script>

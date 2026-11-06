@@ -19,15 +19,21 @@
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime((v || 0.3) * vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
   }
+  let NB = null;   // 共用的 3 秒白噪音: 每次只是從隨機位置切一段來播
+  function noiseBuf(c) {
+    if (NB && NB.sampleRate === c.sampleRate) return NB;
+    const n = Math.floor(c.sampleRate * 3); NB = c.createBuffer(1, n, c.sampleRate); const d = NB.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    return NB;
+  }
   function noise(dur, v, f0, f1, delay, q) {
     const c = ac(); if (!c) return;
-    const t = c.currentTime + (delay || 0), n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    const s = c.createBufferSource(); s.buffer = b;
+    const t = c.currentTime + (delay || 0), s = c.createBufferSource();
+    dur = Math.min(dur, 2.8); s.buffer = noiseBuf(c);
     const fl = c.createBiquadFilter(); fl.type = "bandpass"; fl.Q.value = q || 1.2; fl.frequency.setValueAtTime(f0, t);
     if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + dur);
     const g = c.createGain(); g.gain.setValueAtTime((v || 0.3) * vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(fl).connect(g).connect(c.destination); s.start(t);
+    s.connect(fl).connect(g).connect(c.destination); s.start(t, Math.random() * (2.9 - dur), dur);
   }
   const SFX = {
     card() { noise(0.06, 0.5, 2200, 1200); tone(320, 0.07, "triangle", 0.18, 180); },
@@ -104,14 +110,15 @@
   let budget = { snd: 0, fly: 0 }, lastFly = { key: "", t: 0 };
   let hintD = null;   // 引擎先送一行隱藏的「出牌者|目標|種類」,緊接著的 [Chain] 使用 行就知道牌要飛向誰
   let skipD = null;   // 已經照提示飛過了: 之後同一張牌的「對 P#」/「放入」行不要再飛第二次
+  let textHeal = null;   // 文字行先播了回血特效 (曹洪: 先寫連鎖文字,再回血): 緊接著的隱藏回血行跳過
   let healSeen = null;   // 引擎的隱藏回血行已經播過特效: 緊接著的「回 N 點體力」文字行不要再播一次
   function hint(s0, quiet) {
     const jm = s0.match(/^JUDGE\|(-?\d+)\|(\S*)/);
     if (jm) { if (!quiet && budget.snd++ < 6) sfx(jm[2] === "紅" ? "judgeR" : "judgeB"); return; }
     const dm = s0.match(/^\x01DRAW\|(\d+)\|(\d+)/);
     if (dm) { if (!quiet && budget.snd++ < 6) sfx("draw"); return; }
-    const hm = s0.match(/^HEAL\|(\d+)/);
-    if (hm) { if (!quiet) { healSeen = +hm[1]; burst(pos(+hm[1]), "heal", "+"); if (budget.snd++ < 6) sfx("heal"); } return; }
+    const hm = s0.match(/^HEAL\|(\d+)\|?(\d*)/);
+    if (hm) { if (!quiet) { if (textHeal && textHeal.i === +hm[1] && Date.now() - textHeal.t < 1500) { textHeal = null; return; } healSeen = +hm[1]; if (!(window.SGS_ANIM && SGS_ANIM.event(+hm[1], "heal", +hm[2] || 1))) { burst(pos(+hm[1]), "heal", "+"); if (budget.snd++ < 6) sfx("heal"); } } return; }
     const m = s0.match(/^\x01FX\|(\d+)\|(-?\d+)\|(\w*)/);
     hintD = !quiet && m ? { who: +m[1], tgt: +m[2], kind: m[3] } : null;
   }
@@ -151,13 +158,15 @@
     };
     let m;
     if (/^---/.test(s)) return playSfx("turn");
-    if (/^===.*勝利/.test(s)) return playSfx("win");
-    if (/\*\*\*.*陣亡/.test(s)) { m = s.match(/P(\d+)/); if (m) burst(pos(+m[1]), "die", "☠"); return playSfx("death"); }
+    if (/^===.*勝利/.test(s)) return (window.SGS_ANIM && SGS_ANIM.anyIn()) ? undefined : playSfx("win");   // 牌桌上有人用動畫特效: 勝負音效交給動畫
+    if (/\*\*\*.*陣亡/.test(s)) { m = s.match(/P(\d+)/); if (m && window.SGS_ANIM && SGS_ANIM.event(+m[1], "die")) return;   // 這個座位有「動畫特效」: 播動畫自己的死亡特效和音效
+      if (m) burst(pos(+m[1]), "die", "☠"); return playSfx("death"); }
     if ((m = s.match(/P(\d+)\([^)]*\) 受到 (\d+) 點(\S*?)傷害/))) {
+      if (window.SGS_ANIM && SGS_ANIM.event(+m[1], "hurt", +m[2])) return;   // 這個座位有「動畫特效」: 用動畫自己的扣血特效和音效
       burst(pos(+m[1]), "hit");
       return playSfx(/火/.test(m[3]) ? "fire" : /雷/.test(m[3]) ? "thunder" : "hit");
     }
-    if ((m = s.match(/P(\d+)\([^)]*\)[^\n]*回 (\d+) 點體力/))) { if (healSeen === +m[1]) { healSeen = null; return; } burst(pos(+m[1]), "heal", "+"); return playSfx("heal"); }
+    if ((m = s.match(/P(\d+)\([^)]*\)[^\n]*回 (\d+) 點體力/))) { if (healSeen === +m[1]) { healSeen = null; return; } textHeal = { i: +m[1], t: Date.now() }; if (window.SGS_ANIM && SGS_ANIM.event(+m[1], "heal", +m[2])) return; burst(pos(+m[1]), "heal", "+"); return playSfx("heal"); }
     if (/武將牌翻(?:面|成)/.test(s) && !/不會翻面|不能被降雷翻回/.test(s)) return playSfx("flip");
     if (/偽裝成/.test(s)) return playSfx("disguise");
     if (/棄置|棄掉|棄\s*[\d兩]|丟掉|棄牌|棄光/.test(s) && !/放棄|不依體力棄牌/.test(s)) return playSfx("discard");   // 棄牌 / 被棄置
@@ -167,17 +176,20 @@
     if (/在 P\d+\([^)]*\) 的回合使用 ⚡/.test(s)) return;   // 「別人回合中使用 ⚡牌」的宣告行: 沒有對象,會讓牌先飛到中間;真正的飛牌 / 音效等下面帶目標的那一行播 (不然同一張牌飛兩次)
     const c = cardOf(s.slice(s.search(/使用|打出|裝備|放入|發動/)));
     if (c && S.cat && S.cat[c.name] && S.cat[c.name].eq && !/裝備/.test(s)) return;   // 裝備牌的「使用」不飛; 等「裝備」那行在自己身上播
+    const tIdx = hd && hd.tgt >= 0 ? hd.tgt : tgt != null ? +tgt : -1;
+    const atkFx = () => tIdx >= 0 && tIdx !== +who && window.SGS_ANIM && SGS_ANIM.attack(+who, tIdx);   // 出手的人有動畫特效: 播攻擊特效並取代出牌音效
     const A = pos(+who), B = hd ? (hd.kind === "self" ? pos(+who) : hd.tgt >= 0 ? pos(hd.tgt) : center()) : tgt ? pos(+tgt) : center();
     if (/(?:使用|打出) ?(?:紅|黑)?閃(?!電)/.test(s)) { doFly(A, center(), c); return playSfx("dodge"); }
-    if (/(?:使用|打出) ?(?:紅|黑)?(?:火|冰|雷)?殺/.test(s)) { doFly(A, B, c); return playSfx("slash"); }
+    if (/(?:使用|打出) ?(?:紅|黑)?(?:火|冰|雷)?殺/.test(s)) { doFly(A, B, c); if (atkFx()) return; return playSfx("slash"); }
     if (/裝備/.test(s)) { doFly(A, A, c); return playSfx("equip"); }
-    if (/(?:使用|打出) ?(?:紅|黑)?決/.test(s)) { doFly(A, B, c); return playSfx("duel"); }
+    if (/(?:使用|打出) ?(?:紅|黑)?決/.test(s)) { doFly(A, B, c); if (atkFx()) return; return playSfx("duel"); }
     if (/(?:使用|打出) ?(?:紅|黑)?桃/.test(s)) { doFly(A, B || center(), c); return playSfx("card"); }
+    if (/(?:使用|打出) ?(?:紅|黑)?火攻/.test(s)) { doFly(A, B, c); if (atkFx()) return; return playSfx("trick"); }
     doFly(A, B, c);
     return playSfx(/放入/.test(s) || /(?:使用|打出) ?(?:紅|黑)?(?:順|過|南|萬|無|桃園|五|借|火攻|飢|突|樂|兵|草|閃電|毒|調|占|轉|反)/.test(s) ? "trick" : "card");
   }
   window.SGS_FX = {
-    onLine, hint, sfx, begin() { budget = { snd: 0, fly: 0 }; healSeen = null; },
+    onLine, hint, sfx, tone, noise, begin() { budget = { snd: 0, fly: 0 }; healSeen = null; textHeal = null; },
     get muted() { return muted; },
     get vol() { return vol; }, setVol(v) { vol = v; store("sgs_vol", v); },
     get tts() { return tts; }, setTts(on) { tts = !!on; store("sgs_tts", on ? "on" : "off"); if (!on && window.speechSynthesis) window.speechSynthesis.cancel(); },

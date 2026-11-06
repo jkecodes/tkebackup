@@ -1124,12 +1124,12 @@ class 張嶷(Char):
         if not p.hand:
             return
         cands = [q for q in g.others(p) if q.hand]
-        if not cands or not g.trigger_ok(p, "張嶷-同顯") or not _may(g, p, "張嶷-同顯"):
+        if not cands or not g.trigger_ok(p, "張嶷-同時亮牌") or not _may(g, p, "張嶷-同時亮牌"):
             return
-        t = p.agent.choose_target(g, p, "張嶷-同顯", cands)
+        t = p.agent.choose_target(g, p, "張嶷-同時亮牌", cands)
         a, b = p.agent.show_card(g, p, list(p.hand)), t.agent.show_card(g, t, list(t.hand))
-        g.link(f"{p.name}[張嶷] 與 {t.name} 同顯: {a} / {b}")
-        g.last_reveal = ("張嶷 同顯", [(p.idx, a), (t.idx, b)])   # 桌面中央讓大家看到
+        g.link(f"{p.name}[張嶷] 與 {t.name} 同時亮牌: {a} / {b}")
+        g.last_reveal = ("張嶷 同時亮牌", [(p.idx, a), (t.idx, b)])   # 桌面中央讓大家看到
         if a.color == b.color:
             g.heal(p)
             g.damage(p, t, 1)

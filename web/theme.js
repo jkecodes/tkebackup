@@ -982,6 +982,10 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
       boxStyle = document.createElement("style"); boxStyle.dataset.cos = "1";
       boxStyle.textContent = `.pl[data-bx],.pvseat[data-bx],.bxsw[data-bx],.bxrow[data-bx]{background-image:var(--bx-img)!important;background-size:var(--bx-sz)!important;background-repeat:repeat!important;background-position:var(--bx-p0)}   /* 位置不能加 !important,否則會蓋掉動畫 */
 .pl[data-bx]:not(.cur):not(.target):not(.win),.pvseat[data-bx],.bxsw[data-bx],.bxrow[data-bx]{box-shadow:var(--bx-sh)!important}
+.pl[data-bx].win::before,.pl[data-bx].cur::before,.pl[data-bx].target::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:8}   /* 場景層 (竹子等) 畫在方塊裡面,會蓋住 inset 的勝利金框 / 出牌框 / 目標框: 框線改畫在最上面一層 */
+.pl[data-bx].win::before{box-shadow:inset 0 0 0 2px var(--gold)}
+.pl[data-bx].cur::before{box-shadow:inset 0 0 0 2px var(--accent)}
+.pl[data-bx].target::before{box-shadow:inset 0 0 0 2px var(--green)}
 .pl[data-bx][data-bxpx],.pvseat[data-bx],.bxsw[data-bx][data-bxpx],.bxrow[data-bx][data-bxpx]{border-radius:0!important}
 /* 玩家框會動: 底色漸層角度緩緩擺動,有格紋 / 圓點圖樣的再加上圖樣慢慢飄移 (像素款是一格一格跳) */
 @keyframes bxmove{from{background-position:var(--bx-p0)}to{background-position:var(--bx-p1)}}
@@ -1018,7 +1022,7 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
   function openDlg(tab) {
     const M = document.getElementById("modal2"); if (!M) return;   // 獨立一層: 不會被打牌詢問洗掉、大廳裡也能開
     const mode = tab === "ach" ? "ach" : tab === "shop" ? "shop" : "look";
-    tab = tab === "ach" ? "ach" : (tab === "frame" || tab === "fx" || tab === "box" || tab === "cardbg" || tab === "cardback") ? tab : "theme";
+    tab = tab === "ach" ? "ach" : (tab === "frame" || tab === "fx" || tab === "box" || tab === "cardbg" || tab === "cardback" || tab === "anim") ? tab : "theme";
     let pv = null;   // 預覽: 點到還沒解鎖的項目時,只預覽、不套用
     const render = () => {
       M.textContent = "";
@@ -1053,7 +1057,9 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
       const ordered = L => [...L].sort((a, b) => (has(kindOf(L), b.id) ? 1 : 0) - (has(kindOf(L), a.id) ? 1 : 0));
       const ordered2 = (L, kind) => [...L].sort((a, b) => (has(kind, b.id) ? 1 : 0) - (has(kind, a.id) ? 1 : 0));
       const kindOf = L => (L === CAT.boxes ? "boxes" : L === CAT.fx ? "fx" : "frames");
-      const tabs = achMode ? [] : [["theme", "🎨 主題"], ["box", "🪟 玩家框"], ["frame", "🖼 頭像框"], ["fx", "✨ 頭像特效"], ["cardbg", "🃏 卡面"]];
+      const animName = id => ((CAT.anims || []).find(x => x.id === id) || {}).n || id;
+      const boxName = id => ((CAT.boxes || []).find(x => x.id === id) || {}).n || id;
+      const tabs = achMode ? [] : [["theme", "🎨 主題"], ["box", "🪟 玩家框"], ["frame", "🖼 頭像框"], ["fx", "✨ 頭像特效"], ["cardbg", "🃏 卡面"], ["anim", "🎬 動畫特效"]];
       let body;
       if (!CAT) body = h("div", { class: "meta", text: "載入中…" });
       else if (tab === "theme") {
@@ -1077,9 +1083,24 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
             class: "tile" + (ok ? "" : " lock") + (on ? " sel" : "") + (pv && pv.box === x.id ? " pvd" : ""), title: ok ? x.n : "需要 " + x.req_text, "aria-pressed": on ? "true" : "false",
             onclick: async () => { if (!ok) { pv = needPv("boxes", x, { box: x.id }); render(); return; } pv = null; const id = x.id === "classic" ? "" : x.id; sel.box = id; render(); await post({ box: id }); render(); },
           }, (() => { const e = h("span", { class: "bxsw", style: { display: "block", width: "92px", height: "54px", borderRadius: "6px", background: bg, boxShadow: `inset 0 0 0 1px ${sp ? sp.bd : "#24557d"},0 0 8px ${sp ? sp.gl + "55" : "rgba(63,210,255,.25)"}` } }); if (sp) applyBox(e, x.id); return e; })(),
-          h("span", { class: "tn", text: (ok ? "" : "🔒 ") + x.n }), ok ? null : h("span", { class: "rq", text: rq(x) }), ok ? null : lockProg(x));
+          h("span", { class: "tn", text: (ok ? "" : "🔒 ") + x.n }), x.anim ? h("span", { class: "meta", style: { fontSize: "11px", opacity: ".85" }, text: "🎬 " + animName(x.anim) }) : null, ok ? null : h("span", { class: "rq", text: rq(x) }), ok ? null : lockProg(x));
         });
-        body = h("div", {}, h("div", { class: "meta", style: { marginBottom: "6px" }, text: `已解鎖 ${(CAT.boxes || []).filter(x => has("boxes", x.id)).length} / ${(CAT.boxes || []).length}` }), h("div", { class: "grid" }, ...sw), h("div", { class: "meta", style: { marginTop: "10px" }, text: "玩家框是牌桌上你的座位方塊外觀,所有玩家都看得到。有些要成就解鎖。" }));
+        body = h("div", {}, h("div", { class: "meta", style: { marginBottom: "6px" }, text: `已解鎖 ${(CAT.boxes || []).filter(x => has("boxes", x.id)).length} / ${(CAT.boxes || []).length}` }), h("div", { class: "grid" }, ...sw), h("div", { class: "meta", style: { marginTop: "10px" }, text: "玩家框是牌桌上你的座位方塊外觀,所有玩家都看得到。有些要成就解鎖。每個框下面的 🎬 是推薦搭配的動畫特效。" }));
+      } else if (tab === "anim") {   // 動畫特效 (聲望限定): 進場 + 勝利 + 落敗,所有玩家都看得到
+        const L = CAT.anims || [], A = window.SGS_ANIM, curv = sel.anim || "", tid = pv && pv.anim != null ? pv.anim : curv; const cb = sel.box || "classic";
+        const playPv = (id, kind) => { if (!A || !id) return; const e = document.getElementById("anmstage"); if (!e) return; A.preview(id, kind, A.rectOf(e)); };
+        const sw = L.map(x => {
+          const ok = has("anims", x.id), on = curv === x.id, th = A && A.THEMES[x.id];
+          return h("button", {
+            class: "tile" + (ok ? "" : " lock") + (on ? " sel" : "") + (pv && pv.anim === x.id ? " pvd" : ""), title: ok ? x.n : rq(x), "aria-pressed": on ? "true" : "false",
+            onclick: async () => { if (!ok) { pv = needPv("anims", x, { anim: x.id }); render(); requestAnimationFrame(() => playPv(x.id, "in")); return; } pv = null; await post({ anim: x.id }); render(); requestAnimationFrame(() => playPv(x.id, "in")); },
+          }, h("span", { style: { width: "54px", height: "54px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", fontWeight: "900", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,.7)", background: th ? th.ic : "rgba(120,160,200,.18)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.25)" }, text: th ? th.g : "—" }),
+          h("span", { class: "tn", text: (ok ? "" : "🔒 ") + x.n }), ok ? null : h("span", { class: "rq", text: rq(x) }));
+        });
+        const stage = h("div", { id: "anmstage", style: { height: "110px", width: "min(220px,70%)", margin: "10px auto 6px", borderRadius: "10px", background: "radial-gradient(ellipse at center,rgba(120,160,200,.16),rgba(120,160,200,.04))", boxShadow: "inset 0 0 0 1px rgba(120,160,200,.25)", display: "flex", alignItems: "center", justifyContent: "center" } },
+          h("span", { class: "meta", text: tid ? "點下面按鈕預覽" : "選一組動畫來預覽" }));
+        const btns = h("div", { style: { display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap", marginBottom: "10px" } }, ...[["in", "▶ 進場"], ["win", "🏆 勝利"], ["lose", "🏳 落敗"], ["atk", "⚔ 攻擊"], ["hurt", "💥 扣血"], ["heal", "💚 回血"], ["die", "☠ 死亡"]].map(([k, n]) => h("button", { text: n, disabled: !tid, onclick: () => playPv(tid, k) })));
+        body = h("div", {}, stage, btns, h("div", { class: "meta", style: { marginBottom: "6px" }, text: `已擁有 ${L.filter(x => has("anims", x.id)).length} / ${L.length}` }), h("div", { class: "grid" }, ...sw));
       } else if (tab === "cardbg" || tab === "cardback") {   // 卡面 (你的牌的底色風格) / 卡背: 其他玩家看得到
         const isBg = tab === "cardbg", kind = isBg ? "cardbgs" : "cardbacks", L = CAT[kind] || [], curv = (isBg ? sel.cardbg : sel.cardback) || "classic";
         const art = sel.cardart === "svg" ? "&art=svg" : "", url = id => isBg ? "/cards/" + encodeURIComponent("殺") + ".svg?bg=" + id + art + "&t=" + ARTT : "/cards/_back.svg?bk=" + id + "&t=" + ARTT;
@@ -1128,7 +1149,7 @@ ${S} input[type=range]::-moz-range-thumb{width:${round ? 18 : 12}px;height:${rou
             achMode ? null : h("div", { style: { display: "flex", gap: "8px", flexWrap: "nowrap", flexBasis: "100%" } }, ...[["💰 ", p.coins || 0, " 遊戲幣"], ["🏵 ", p.renown || 0, " 聲望"]].map(([ic, n, lb]) => h("span", { style: { display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 9px", border: "1px solid #ffd24a", borderRadius: "6px", background: "rgba(255,210,74,.1)", fontSize: "13px", fontWeight: "700", whiteSpace: "nowrap" } }, ic, h("b", { style: { color: "#ffd24a", fontVariantNumeric: "tabular-nums" }, text: String(n) }), lb)))),
           achMode ? h("div", { class: "meta", text: "每個成就解鎖一個外觀;其他外觀到「外觀」用遊戲幣買" }) : null), h("button", { class: "x", text: "✕", onclick: close })),
           h("div", { style: { padding: "6px 22px 18px", maxHeight: "70vh", overflowY: "auto" } },
-            achMode || tab === "theme" || tab === "cardbg" || tab === "cardback" ? null : preview(), achMode ? null : buyRow(),
+            achMode || tab === "theme" || tab === "cardbg" || tab === "cardback" || tab === "anim" ? null : preview(), achMode ? null : buyRow(),
             achMode ? null : h("div", { class: "tabs" }, ...tabs.map(([k, n]) => h("button", { class: k === tab ? "on" : "", text: n, onclick: () => { tab = k; pv = null; render(); } }))),
             body, achMode ? null : h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px", gap: "8px" } }, h("span"), h("button", { class: "primary", text: "完成", onclick: close }))))));   // 成就列表右上角有 ✕,不放最下面的完成按鈕
     };

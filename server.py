@@ -343,14 +343,14 @@ class Profiles:
                 self._save()
         tier, achs = self.peak_tier(p), p.get("ach", {})
         st = self.style(tok)
-        return {"coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": p.get("pres", 0), "cos": self.dev_adj(p, cosmetics.unlocked_ids(tier, achs, set(p.get("owned", [])), p.get("pres", 0))), "sel": {"frame": st["fr"], "fx": st["fx"], "theme": p.get("theme"), "box": st["bx"], "cardbg": st["cb"], "cardback": st["bk"], "cardart": st["ca"], "genart": st["ga"]},
+        return {"coins": p.get("coins", 0), "renown": p.get("renown", 0), "pres": p.get("pres", 0), "cos": self.dev_adj(p, cosmetics.unlocked_ids(tier, achs, set(p.get("owned", [])), p.get("pres", 0))), "sel": {"frame": st["fr"], "fx": st["fx"], "theme": p.get("theme"), "box": st["bx"], "cardbg": st["cb"], "cardback": st["bk"], "cardart": st["ca"], "genart": st["ga"], "anim": st["an"]},
                 "ach": achs, "ach_new": list(p.get("ach_new", [])), "peak_tier": tier, "ach_prog": cosmetics.progress(p, self.level(p["xp"]), max(p.get("peak_rp", 0), p.get("rp", 0)))}
 
     def style(self, tok):
         """目前使用的頭像框 / 特效 (沒選過: 頭像框自動用最高段位的框)。"""
         p = self.d.get(tok)
         if not p:
-            return {"fr": "", "fx": "", "bx": "", "cb": "", "bk": "", "ca": "", "ga": ""}
+            return {"fr": "", "fx": "", "bx": "", "cb": "", "bk": "", "ca": "", "ga": "", "an": ""}
         tier, sel = self.peak_tier(p), p.get("sel", {})
         ok = self._ok(p)
         fr = sel["frame"] if "frame" in sel and ok("frames", sel["frame"]) else cosmetics.auto_frame(tier)
@@ -359,9 +359,10 @@ class Profiles:
         cb = sel.get("cardbg", "") if ok("cardbgs", sel.get("cardbg", "")) else ""
         bk = sel.get("cardback", "") if ok("cardbacks", sel.get("cardback", "")) else ""
         ca = "svg" if sel.get("cardart") == "svg" else ""   # 卡圖外觀: "" = 新水墨圖, "svg" = 手繪向量圖 (免費,不用解鎖)
-        return {"fr": fr, "fx": fx, "bx": bx, "cb": cb, "bk": bk, "ca": ca, "ga": "old" if sel.get("genart") == "old" else ""}
+        an = sel.get("anim", "") if ok("anims", sel.get("anim", "")) else ""
+        return {"fr": fr, "fx": fx, "bx": bx, "cb": cb, "bk": bk, "an": an, "ca": ca, "ga": "old" if sel.get("genart") == "old" else ""}
 
-    def set_style(self, tok, frame, fx, theme=None, box=None, cardbg=None, cardback=None, cardart=None, genart=None):
+    def set_style(self, tok, frame, fx, theme=None, box=None, cardbg=None, cardback=None, cardart=None, genart=None, anim=None):
         p = self.get(tok)
         ok = self._ok(p)
         with self.lock:
@@ -374,6 +375,8 @@ class Profiles:
                 sel["box"] = box
             if cardbg is not None and ok("cardbgs", cardbg):
                 sel["cardbg"] = cardbg
+            if anim is not None and (anim == "" or ok("anims", anim)):
+                sel["anim"] = anim
             if cardart in ("", "svg", "ink"):
                 sel["cardart"] = "svg" if cardart == "svg" else ""
             if genart in ("", "old", "ink"):
@@ -967,6 +970,8 @@ class Manager:
             return {"ok": False, "error": "對方已不在房間"}
         if target == tok:
             return {"ok": False, "error": "不能踢自己"}
+        if self.game_active() and (self.cfg or {}).get("ranked"):   # 段位局進行中: 房主不能踢人 (不然可以把輸家 / 對手踢掉躲掉扣分)
+            return {"ok": False, "error": "段位模式進行中不能踢人"}
         name = self._name_of(target)
         seat = self.seat_of(target)
         if seat is not None:
@@ -1165,7 +1170,15 @@ class Manager:
                 rnd = random.Random(id(g))
                 pick = lambda L, none: rnd.choice([x["id"] for x in L if x["id"]] + [""] * none)
                 self._bot_gid = id(g)
-                self._bot_sty = {i: {"fr": pick(cosmetics.FRAMES, 1), "fx": pick(cosmetics.EFFECTS, 3), "bx": pick(cosmetics.BOXES, 2), "cb": rnd.choice([x["id"] if x["id"] != "classic" else "" for x in cosmetics.CARDBGS]), "bk": ""} for i in range(len(g.players))}
+                self._bot_sty = {}
+                for i in range(len(g.players)):
+                    bx = pick(cosmetics.BOXES, 2)
+                    an = ""
+                    if self._level(self.cfg, i) >= 5:   # 只有「極強」的電腦才會隨機帶動畫特效: 有玩家框的 5 成機率用配對的動畫,其餘 2 成隨機一組 (每局大約一半的電腦會有)
+                        an = cosmetics.BOX_ANIM.get(bx, "") if bx and rnd.random() < .5 else ""
+                        if not an and rnd.random() < .2:
+                            an = rnd.choice([x["id"] for x in cosmetics.ANIMS if x["id"]])
+                    self._bot_sty[i] = {"fr": pick(cosmetics.FRAMES, 1), "fx": pick(cosmetics.EFFECTS, 3), "bx": bx, "cb": rnd.choice([x["id"] if x["id"] != "classic" else "" for x in cosmetics.CARDBGS]), "bk": "", "an": an}
             for i, st in self._bot_sty.items():
                 out.setdefault(i, st)
         return out
@@ -2115,7 +2128,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._file(os.path.join(WEB, "icons", os.path.basename(path)), "max-age=86400")
             if path in ("/fonts/pixel-tw.woff2", "/fonts/pixel-ja.woff2"):   # 像素主題的字體 (Fusion Pixel Font, OFL 授權)
                 return self._file(os.path.join(WEB, "fonts", path[len("/fonts/"):]))
-            if path in ("/i18n.js", "/i18n_log.js", "/i18n_ui.js", "/i18n_log2.js", "/i18n_new.js", "/i18n_rank.js", "/fx.js", "/theme.js", "/friends.js", "/lessons.js"):
+            if path in ("/i18n.js", "/i18n_log.js", "/i18n_ui.js", "/i18n_log2.js", "/i18n_new.js", "/i18n_rank.js", "/fx.js", "/theme.js", "/anim.js", "/friends.js", "/lessons.js"):
                 return self._file(os.path.join(WEB, path[1:]))
             if path == "/api/about":
                 from version import VERSION, REPO
@@ -2202,7 +2215,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/ach_ack":
                 return self._send(200, PROFILES.ack_ach(data.get("tok")))
             if path == "/api/cosmetic":
-                return self._send(200, PROFILES.set_style(data.get("tok"), data.get("frame"), data.get("fx"), data.get("theme"), data.get("box"), data.get("cardbg"), data.get("cardback"), data.get("cardart"), data.get("genart")))
+                return self._send(200, PROFILES.set_style(data.get("tok"), data.get("frame"), data.get("fx"), data.get("theme"), data.get("box"), data.get("cardbg"), data.get("cardback"), data.get("cardart"), data.get("genart"), data.get("anim")))
             if path == "/api/buy":
                 return self._send(200, PROFILES.buy(data.get("tok"), str(data.get("kind") or ""), str(data.get("id") or "")))
             if path == "/api/dev":   # 開發者管理介面 (GUI)
