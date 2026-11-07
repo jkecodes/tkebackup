@@ -788,11 +788,11 @@ class Manager:
         """尚無對局/無房主時任何人都可以;否則只有房主。"""
         return not self.host or tok == self.host
 
-    def end_game(self, tok):
+    def end_game(self, tok, force=False):
         """休閒局: 隨時可以強制結束這一局 (房主 / 公共房間的任何人 / 坐在位子上的人)。段位局要用棄賽。"""
-        if (self.cfg or {}).get("ranked") and self.game_active():
+        if not force and (self.cfg or {}).get("ranked") and self.game_active():
             return {"ok": False, "error": "段位局不能強制結束,請用棄賽"}
-        if not (self.is_host(tok) or self.seat_of(tok) is not None):
+        if not force and not (self.is_host(tok) or self.seat_of(tok) is not None):
             return {"ok": False, "error": "only host"}
         if self.game is None and not self.lobby:
             return {"ok": True}
@@ -810,7 +810,8 @@ class Manager:
             self.cfg, self.paused, self.error, self.pending, self.lobby = {}, False, None, None, False
             self.multi, self.multi_res, self.multi_win = {}, {}, None
             self.over_at, self._ans, self.les = None, None, None
-            self._event(f"⛔ {self._name_of(tok)} 強制結束了這一局", "bad", tok)
+            if not force:
+                self._event(f"⛔ {self._name_of(tok)} 強制結束了這一局", "bad", tok)
         return {"ok": True}
 
     def rematch(self, tok):
@@ -1405,6 +1406,9 @@ class Manager:
                 **({"checklist": True, "got": sorted(st.get("got", ())), "manual": [x["rx"] is None for x in L["skills"]], "cur": len(st.get("got", ()))} if L.get("skills") else {})}
 
     def lesson_leave(self, tok):
+        """離開練習關卡: 連同這局練習對局一起結束 (不然對局會繼續跑,畫面上還會跳出關卡裡的技能詢問)。"""
+        if (self.cfg or {}).get("lesson"):
+            self.end_game(tok, force=True)
         self.les = None
         if self.cfg:
             self.cfg["lesson"] = None
