@@ -756,6 +756,7 @@ class Manager:
         self.seen = {}    # tok -> 最後一次連線時間 (算目前在線人數)
         self.kicked = {}  # tok -> 解除時間 (被房主踢出)
         self.cap = 0       # 房間人數上限 (0 = 不限; 含觀戰的人)
+        self.unlisted = False   # 不公開房間: 不顯示在大廳列表 (知道房號 / 被邀請的人還是進得來)
         self.solo = False  # 單人模式房間: 只有建立者進得去,不顯示在大廳,離開就刪除
         self.pw = None    # 房間密碼 (加鹽雜湊;None = 沒有密碼)
         self.allowed = set()   # 輸入過密碼 / 被邀請的玩家 (uuid)
@@ -1759,6 +1760,17 @@ def set_room_password(tok, rid, password):
     return {"ok": True, "locked": bool(m.pw)}
 
 
+def set_room_visibility(tok, rid, unlisted):
+    """房主 / 建立者切換房間公開 (顯示在大廳) 或不公開 (不顯示在大廳列表)。"""
+    m = ROOMS.get(rid)
+    if rid == "main" or m is None:
+        return {"ok": False, "error": "這個房間不能改公開設定"}
+    if tok not in (m.owner, m.host):
+        return {"ok": False, "error": "只有房主可以改房間公開設定"}
+    m.unlisted = bool(unlisted)
+    return {"ok": True, "unlisted": m.unlisted}
+
+
 def delete_room(tok, rid):
     m = ROOMS.get(rid)
     if rid == "main" or m is None:
@@ -1836,7 +1848,7 @@ def list_rooms(tok=None):
         LOBBY_SEEN[tok] = now
     rk = SOCIAL.remarks(SOCIAL.key_of(tok)) if tok else {}
     for rid, m in list(ROOMS.items()):
-        if m.solo:
+        if m.solo or (m.unlisted and tok not in (m.owner, m.host)):   # 不公開的房間: 只有房主 / 建立者在大廳看得到
             continue
         on = m.online()
         st = ("進行中" if m.game_active() else "選武將" if m.picking else "等待玩家" if m.lobby else "等待開局" if on else "空房")   # 有人在的房間不能寫空房
@@ -2110,7 +2122,7 @@ class Handler(BaseHTTPRequestHandler):
                                 q.get("peek", ["0"])[0] == "1" and not (M.cfg or {}).get("ranked") and (len(M.humans) <= 1 or M.is_host(tok)))   # 多人遊戲只有房主能偷看
                 snap["room_name"] = M.room_name
                 snap["can_manage"] = tok_can_manage(M, tok)
-                snap["room_locked"] = bool(M.pw)
+                snap["room_locked"] = bool(M.pw); snap["room_unlisted"] = bool(M.unlisted)
                 snap["is_host"] = M.is_host(tok)
                 snap["online"] = M.online()
                 snap["ranked_abandoned"] = M.ranked_abandoned()
@@ -2288,6 +2300,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "not found"})
             if path == "/api/room_rename":
                 return self._send(200, rename_room(data.get("tok"), data.get("target"), data.get("name")))
+            if path == "/api/room_visibility":
+                return self._send(200, set_room_visibility(data.get("tok"), data.get("target"), data.get("unlisted")))
             if path == "/api/room_password":
                 return self._send(200, set_room_password(data.get("tok"), data.get("target"), data.get("password")))
             if path == "/api/room_delete":
