@@ -233,7 +233,7 @@ button.primary{background:linear-gradient(180deg,#52dcff,#1a9bd0);color:#02202e;
 button.big{font-size:16px;font-weight:800;padding:10px 38px}
 .sec{margin:16px 0 4px}
 .sh{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
-.sec.lk .seg,.sec.lk .row{pointer-events:none;opacity:.45}.sec.lk .sh b::after{content:" 🔒 段位模式固定";font-size:11px;color:var(--dim);letter-spacing:0}
+.sec.lk .seg,.sec.lk .row{pointer-events:none;opacity:.45}.sec.lk .sh b::after{content:" 🔒 " var(--t-lock,"段位模式固定");font-size:11px;color:var(--dim);letter-spacing:0}
 .rkside{display:none;position:fixed;right:calc(50vw + 470px);top:90px;width:190px;background:#0e2442;border:1px solid #24496f;border-radius:12px;padding:12px 14px;z-index:5}.rkbar{height:8px;border-radius:4px;background:#17304f;margin:6px 0;overflow:hidden}.rkbar i{display:block;height:100%;background:var(--accent)}.rkin{display:none;margin-top:10px;padding:12px 14px;background:#0e2442;border:1px solid #24496f;border-radius:12px;font-size:13px;color:var(--dim)}.rkin.on{display:block}.rkside{display:none!important}   /* 新遊戲: 段位卡直接放在「對戰模式」下面 (原本貼在視窗外側,平板 / 窄螢幕會被擠掉) */
 .shi{font-size:14px;padding:0 4px;color:var(--dim);cursor:help;opacity:.7}#shtip{position:fixed;z-index:9999;display:none;max-width:340px;background:#16324a;color:#fff;border:1px solid #3fd2ff;border-radius:8px;padding:8px 12px;font-size:13px;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.5);pointer-events:none}
 .sh b{font-size:13px;letter-spacing:.12em;color:var(--accent)}
@@ -386,7 +386,7 @@ html .pl.target{filter:drop-shadow(0 0 5px #46e0a0) drop-shadow(0 0 14px rgba(70
   .modal.soft .dlg{pointer-events:auto;max-height:46vh;width:min(760px,70vw)}
 }
 .modal.soft .dlg h3{cursor:pointer}.modal.soft .dlg h3::after{content:" ▾";font-size:12px;opacity:.6}
-.modal.soft .dlg.mini h3::after{content:" ▸ (點擊展開)"}.modal.soft .dlg.mini>*:not(h3){display:none}
+.modal.soft .dlg.mini h3::after{content:" ▸ " var(--t-more,"(點擊展開)")}.modal.soft .dlg.mini>*:not(h3){display:none}
 .modal.soft .dlg.mini{padding-top:8px;padding-bottom:4px}.modal.soft .dlg.mini h3{margin:0}
 .pl .ph{position:relative;transition:transform .35s}
 .pl .ph.hz{transform:rotate(90deg);margin:0 14px;box-shadow:0 0 10px rgba(63,210,255,.55)}

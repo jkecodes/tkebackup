@@ -52,7 +52,7 @@ html.gf #cosdlg .pvseat{background:linear-gradient(160deg,#2c2016,#17100b);box-s
 html.px #cosdlg .pvseat{background:var(--pxbg);box-shadow:inset 0 0 0 3px var(--pxfg)}
 html.gf .pl:hover{box-shadow:inset 0 0 0 1px #d9ad4f,inset 0 0 0 4px #17100b,inset 0 0 0 5px rgba(217,173,79,.45),0 6px 14px rgba(0,0,0,.5)}
 html.gf .pl.cur{box-shadow:inset 0 0 0 2px #e8c872,inset 0 0 0 4px #17100b,0 0 22px rgba(217,173,79,.55);animation:none}
-html.gf .pl.cur::after{content:"出牌";font-family:var(--ser);color:#f6e7c1;background:linear-gradient(#c43a28,#8e2118);border-radius:2px;letter-spacing:.2em;box-shadow:0 0 0 1px #e8c872,0 2px 8px rgba(0,0,0,.5)}
+html.gf .pl.cur::after{content:var(--t-play,"出牌");font-family:var(--ser);color:#f6e7c1;background:linear-gradient(#c43a28,#8e2118);border-radius:2px;letter-spacing:.2em;box-shadow:0 0 0 1px #e8c872,0 2px 8px rgba(0,0,0,.5)}
 html.gf .pl.sel{box-shadow:inset 0 0 0 2px #e8c872}
 html.gf .pl .ph{border-radius:3px;border:1px solid #8a6a30;box-shadow:inset 0 0 8px rgba(0,0,0,.6),0 0 0 1px #17100b}
 html.gf .pl .nm{font-family:var(--ser);color:#f3e6c4}
@@ -134,7 +134,7 @@ html.px #roundtag .rtdeck{color:var(--pxfg)}
 html.px .pl{background:var(--pxbg);box-shadow:inset 0 0 0 3px var(--pxfg),0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.55);animation:none}
 html.px .pl:hover{box-shadow:inset 0 0 0 3px #29adff,0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.55)}
 html.px .pl.cur{box-shadow:inset 0 0 0 3px var(--pxacc),0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.55);animation:none}
-html.px .pl.cur::after{content:"出牌";color:#000;background:var(--pxacc);box-shadow:0 0 0 2px #000;letter-spacing:.1em}
+html.px .pl.cur::after{content:var(--t-play,"出牌");color:#000;background:var(--pxacc);box-shadow:0 0 0 2px #000;letter-spacing:.1em}
 html.px .pl.sel{box-shadow:inset 0 0 0 3px #ffa300,0 0 0 3px #000}
 html.px .pl .ph{border:2px solid var(--pxfg);box-shadow:0 0 0 2px #000}
 html.px .pl .nm{color:var(--pxfg)}
@@ -244,7 +244,7 @@ ${S} #cosdlg .pvseat{background:${P};box-shadow:inset 0 0 0 1px ${s.line}}
 ${S} .pl{background:${P};border:${B};border-radius:${r}px;box-shadow:${sh};animation:none}
 ${S} .pl:hover{border-color:${s.acc}}
 ${S} .pl.cur{border-color:${s.acc};box-shadow:0 0 0 2px ${s.acc}55,0 0 22px ${s.acc}88;animation:none}
-${S} .pl.cur::after{content:"出牌";background:${s.acc};color:${s.bg};box-shadow:none;letter-spacing:.15em;border-radius:${Math.min(r, 4)}px ${Math.min(r, 4)}px 0 0}
+${S} .pl.cur::after{content:var(--t-play,"出牌");background:${s.acc};color:${s.bg};box-shadow:none;letter-spacing:.15em;border-radius:${Math.min(r, 4)}px ${Math.min(r, 4)}px 0 0}
 ${S} .pl.sel{box-shadow:0 0 0 2px ${s.acc}}
 ${S} .pl .ph{border:1px solid ${s.line};border-radius:${Math.min(r, 6)}px}
 ${S} .role{border-radius:${round ? 99 : Math.min(r, 4)}px}

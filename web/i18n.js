@@ -345,6 +345,25 @@ const SKILLS = [   // 〈武將-技能〉 的技能名
   [/^李儒-逼出閃$/, "force a Dodge", "閃を強要"], [/^楊修-宣告吸收傷害$/, "declare absorb", "吸収を宣言"], [/^王允-全員重抽$/, "everyone redraws", "全員引き直し"],
   [/^賈詡-殺令決鬥$/, "Slash to start Duel", "殺で決闘させる"], [/^趙雲-棄牌或扣血$/, "discard or lose HP", "捨てるか体力-1"], [/^關興-棄兩張(.+)$/, "discard two $1", "$1を2枚捨てる"],
   [/^陳群-重鑄(.+)$/, "recast $1", "$1を再鋳造"], [/^陳群-手牌當突襲$/, "hand as Raid", "手札を突襲として使用"], [/^馬謖-換2張牌$/, "swap 2 cards", "2枚交換"], [/^黃蓋-苦肉$/, "Bitter Flesh", "苦肉の策"],
+  /* 技能詢問 / 選項裡出現的 武將-技能 (補齊) */
+  [/^丁奉-棄裝備抽牌$/, "discard equipment & draw", "装備を捨てて引く"], [/^劉備-仁救$/, "Ren rescue", "仁で救う"], [/^劉禪-手牌上限$/, "hand limit", "手札上限"], [/^劉諶-少抽一張$/, "draw one fewer", "1枚少なく引く"],
+  [/^劉諶-抽牌$/, "draw", "ドロー"], [/^司馬懿-奪牌$/, "seize a card", "カードを奪う"], [/^司馬懿-拿牌$/, "take a card", "カードを取る"], [/^司馬昭-判定$/, "judge", "判定"],
+  [/^司馬炎-抽牌$/, "draw", "ドロー"], [/^呂蒙-判定五次$/, "judge 5 times", "5回判定"], [/^周倉-再抽牌$/, "draw again", "もう一度引く"], [/^周魴-換血$/, "swap HP", "体力交換"],
+  [/^夏侯惇-判定$/, "judge", "判定"], [/^夏侯淵-索牌$/, "demand a card", "カードを求める"], [/^太史慈-再抽$/, "draw again", "もう一度引く"], [/^孟獲-獲得$/, "gain", "獲得"],
+  [/^孫堅-奪牌$/, "seize a card", "カードを奪う"], [/^孫堅-棄牌$/, "discard", "捨牌"], [/^崔琰-再抽2張$/, "draw 2 more", "さらに2枚引く"], [/^崔琰-抽牌$/, "draw", "ドロー"],
+  [/^左慈-全部翻面$/, "flip everyone", "全員裏向き"], [/^左慈-化身$/, "transform", "化身"], [/^張嶷-同時亮牌$/, "reveal together", "同時公開"], [/^張昭-翻面$/, "flip", "裏向き"],
+  [/^張紘-連坐$/, "collective punishment", "連座"], [/^張苞-棄兩張$/, "discard two", "2枚捨てる"], [/^張遼-仁王盾$/, "Renwang Shield", "仁王盾"], [/^張遼-八卦陣$/, "Eight-Trigram", "八卦陣"],
+  [/^張飛-抽牌$/, "draw", "ドロー"], [/^曹仁-回血$/, "heal", "回復"], [/^曹仁-展示$/, "reveal", "公開"], [/^曹仁-打掉$/, "knock out", "打ち落とす"],
+  [/^曹休-無手牌$/, "no hand cards", "手札なし"], [/^曹休-翻面$/, "flip", "裏向き"], [/^曹叡-交牌$/, "hand over cards", "カードを渡す"], [/^曹叡-判定$/, "judge", "判定"],
+  [/^曹彰-少抽一張$/, "draw one fewer", "1枚少なく引く"], [/^曹沖-交換$/, "swap", "交換"], [/^曹沖-交換武將$/, "swap characters", "武将交換"], [/^曹洪-判定$/, "judge", "判定"],
+  [/^曹洪-回血$/, "heal", "回復"], [/^曹洪-換牌$/, "swap cards", "カード交換"], [/^曹真-阻擋$/, "block", "防ぐ"], [/^李嚴-延時$/, "delayed trick", "遅延"],
+  [/^李嚴-抽牌$/, "draw", "ドロー"], [/^楊修-轉移傷害$/, "transfer damage", "ダメージ移転"], [/^沮授-轉移$/, "transfer", "移す"], [/^滿寵-反擊$/, "Counter", "反撃"],
+  [/^荀彧-抽牌$/, "draw", "ドロー"], [/^華雄-判定$/, "judge", "判定"], [/^董卓-樂$/, "Complacency", "楽不思蜀"], [/^蔣幹-趁機抽牌$/, "draw opportunistically", "機に乗じて引く"],
+  [/^袁紹-多抽2張$/, "draw 2 extra", "2枚多く引く"], [/^袁術-連坐$/, "collective punishment", "連座"], [/^許褚-只棄一張$/, "discard only one", "1枚だけ捨てる"], [/^許褚-放棄抽牌$/, "skip drawing", "ドロー放棄"],
+  [/^邯鄲淳-判定$/, "judge", "判定"], [/^郭嘉-拿判定牌$/, "take judgment card", "判定牌を得る"], [/^郭嘉-裝備$/, "equip", "装備"], [/^郭圖&逢紀-變身$/, "transform", "変身"],
+  [/^鄧艾-扣血$/, "lose HP", "体力を失う"], [/^關羽-棄牌$/, "discard", "捨牌"], [/^關興-棄兩張$/, "discard two", "2枚捨てる"], [/^陳群-借技能$/, "borrow skill", "スキルを借りる"],
+  [/^陳群-重鑄$/, "recast", "再鋳造"], [/^韓當-借技能$/, "borrow skill", "スキルを借りる"], [/^馬良-交牌$/, "hand over cards", "カードを渡す"], [/^馬謖-借技能$/, "borrow skill", "スキルを借りる"],
+  [/^魏延-抽牌$/, "draw", "ドロー"], [/^魯肅-贈牌$/, "gift cards", "カード贈与"], [/^龐統-浴火$/, "Rebirth by Fire", "浴火"],
 ];
 let shortRe1 = null, shortRe2 = null;
 const FULL2SHORT = {};   // 卡牌全名 (反擊、無中生有…) → 簡稱 (反、無…),讓全名標籤也能翻譯
@@ -481,6 +500,9 @@ async function loadExact() {
   if (lang === "zh") return;
   try { exact = await (await fetch("/api/i18n?lang=" + lang)).json(); } catch (e) { exact = {}; }
 }
+/* 用 CSS ::after 畫出來的文字 (點擊展開 / 段位模式固定 / 出牌): 逐節點翻譯碰不到,改成語言切換時寫進 CSS 變數 */
+const CSST = { more: { zh: "(點擊展開)", en: "(click to expand)", ja: "(クリックで展開)" }, lock: { zh: "段位模式固定", en: "fixed in ranked", ja: "ランク戦では固定" }, play: { zh: "出牌", en: "PLAY", ja: "出牌" } };
+function cssTexts() { const r = document.documentElement.style; for (const k in CSST) r.setProperty("--t-" + k, JSON.stringify(CSST[k][lang] || CSST[k].zh)); }
 async function setLang(l) {
   if (lang !== "zh") { lang = "zh"; apply(); }   // 先還原成中文原文,再翻成新語言 (否則譯文無法再被翻譯)
   lang = l;
@@ -489,6 +511,7 @@ async function setLang(l) {
   document.querySelectorAll('img[src^="/cards/"]').forEach(im => { im.src = im.getAttribute("src"); });   // 已畫出的卡面重抓,印章字換成新語言
   await loadExact();
   apply();
+  cssTexts();
   refreshTut();
   document.querySelectorAll("select.langsel").forEach(x => { x.value = l; });
   const bl = document.getElementById("bLang"); if (bl) bl.textContent = { zh: "語言", en: "Language", ja: "言語" }[l];
@@ -679,6 +702,7 @@ function init() {
   bl.textContent = LBL[lang];
   if (top && bn) top.insertBefore(tb, bn);   // 語言選單移進設定頁
   start();
+  cssTexts();
   loadExact().then(() => { apply(); });
   try { if (!localStorage.getItem("sgs_tut_seen")) { localStorage.setItem("sgs_tut_seen", "1"); } } catch (e) {}
 }
