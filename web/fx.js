@@ -139,7 +139,7 @@
     if (quiet) return;
     const chain = /^\s*\[Chain \d+\]/.test(s0);
     const s = s0.replace(/\[Chain \d+\]\s*/, "").trim();
-    const cm = chain && s.match(/^(P(\d+)\([^)]*\)) (?:使用|打出) (\S+)$/);
+    const cm = chain && s.match(/^(P(\d+)\([^)]*\)) (?:對 P\d+\([^)]*\) )?(?:使用|打出) (\S+)$/);   // 有目標的連鎖行是「P0 對 P1 使用 黑漁」,下一行才寫全名「使用 坐收漁利」: 兩行都要認得,不然同一張牌會飛兩次、響兩次
     if (cm && hd && hd.who === +cm[2]) {
       if (hd.kind === "eq") return handle(s, hd);   // 裝備牌: 等「裝備」那一行在自己身上播
       skipD = { who: cm[1], card: cm[3].replace(/^(紅|黑)/, ""), ttl: 4 };
