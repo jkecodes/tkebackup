@@ -173,7 +173,7 @@
     const who = (s.match(/^P(\d+)\(/) || [])[1];
     const tgt = (s.match(/對 P(\d+)\(/) || s.match(/放入 P(\d+)\(/) || [])[1];
     if (!who || !/使用|打出|裝備|放入|發動/.test(s) || /使用〈/.test(s)) return;
-    if (/在 P\d+\([^)]*\) 的回合使用 ⚡/.test(s)) return;   // 「別人回合中使用 ⚡牌」的宣告行: 沒有對象,會讓牌先飛到中間;真正的飛牌 / 音效等下面帶目標的那一行播 (不然同一張牌飛兩次)
+    if (/在 P\d+\([^)]*\) 的回合使用(?: ⚡|\s)/.test(s)) return;   // 「別人回合中使用 ⚡牌」的宣告行: 沒有對象,會讓牌先飛到中間;真正的飛牌 / 音效等下面帶目標的那一行播 (不然同一張牌飛兩次)
     const c = cardOf(s.slice(s.search(/使用|打出|裝備|放入|發動/)));
     if (c && S.cat && S.cat[c.name] && S.cat[c.name].eq && !/裝備/.test(s)) return;   // 裝備牌的「使用」不飛; 等「裝備」那行在自己身上播
     const tIdx = hd && hd.tgt >= 0 ? hd.tgt : tgt != null ? +tgt : -1;

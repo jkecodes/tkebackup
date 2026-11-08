@@ -1789,11 +1789,13 @@ class Game:
         inst = self.wei_chars.setdefault(name, ROSTER[name]())
         if p.flipped or p.dg_flip:   # 被翻面後再偽裝: 新偽裝的武將是正面 (技能可用),本尊仍是翻面
             self.log(f"  {p.name} 的新偽裝是正面,本尊仍維持翻面")
+        who = p.name   # 偽裝前的名字 (偽裝後 p.name 會顯示成新武將,紀錄會變成「陳群 偽裝成 陳群」)
         p.disguise = [inst]
         p.dg_flip = False
         p.turn_flags["disguised"] = True
         p.turn_flags["disguise_n"] = p.turn_flags.get("disguise_n", 0) + 1
-        self.log(f"  {p.name} 偽裝成 {name},獲得他的技能直到回合結束")
+        self.log(f"  {who} 偽裝成 {name},獲得他的技能直到回合結束")
+        self._wei_who = who
         for q in list(self.others(p)):
             q.char.on_other_wei(self, q, p, name)
 
@@ -1987,7 +1989,7 @@ class Game:
                     self.link(f"{q.name} 在 {cur.name} 的回合發動 {card!r}")
                     card.run(self, q, t)
                 else:
-                    self.log(f"{q.name} 在 {cur.name} 的回合使用 ⚡{card}")
+                    self.log(f"{q.name} 在 {cur.name} 的回合使用 {card}")
                     self.execute(q, card, t)
                     self.after_play(q, card)
 

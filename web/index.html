@@ -857,7 +857,11 @@ function gi(u) {   // 圖片網址: 依自己選的新 / 舊卡圖、武將圖�
   return u;
 }
 function gaQ() { return mySel().genart === "old" ? "&art=old" : ""; }
-function cbOf(seat) { const st = S.snap && S.snap.avstyles && seat != null ? S.snap.avstyles[seat] : null; return (st && st.cb) || ""; }   // 這個座位的玩家選的卡面風格
+function cbOf(seat) {
+  const v = S.snap && S.snap.viewer;
+  if (v != null && seat === v && S.prof && S.prof.sel) { const c = S.prof.sel.cardbg; return !c || c === "classic" ? "" : c; }   // 自己的牌: 直接用自己現在選的卡面 (不靠伺服器快照,快照慢一拍或沒帶時會掉回預設)
+  const st = S.snap && S.snap.avstyles && seat != null ? S.snap.avstyles[seat] : null; return (st && st.cb) || "";
+}   // 這個座位的玩家選的卡面風格
 function cardEl(c, cls, onclick, seat) {
   const col = c.color === "紅" ? "red" : "blk";
   const e = h("div", {class: "card " + col + (c.img ? "" : " noimg") + (c.land ? " rot" : "") + (cls ? " " + cls : ""), title: c.text || c.name});

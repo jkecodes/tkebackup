@@ -900,7 +900,17 @@ class Manager:
                           "avatar": PROFILES.avatar_url(tok), "style": PROFILES.style(tok), "lv": PROFILES.lv(tok),
                           "spec": self._is_spec(tok)})
         del self.chat[:-200]
+        self.prune_chat(now)
         return {"ok": True}
+
+    CHAT_KEEP = 86400   # 公共房間的訊息最多留一天
+
+    def prune_chat(self, now=None):
+        """公共房間: 超過一天的訊息刪掉 (私人房間的聊天跟著房間走,房間刪除就一起沒了)。"""
+        if self.public and self.chat:
+            cut = (now or time.time()) - self.CHAT_KEEP
+            if self.chat[0].get("t", 0) < cut:
+                self.chat = [m for m in self.chat if m.get("t", 0) >= cut]
 
     def _is_spec(self, tok):
         """觀戰者: 開局後沒有座位的人,或座位上的武將已陣亡的人。"""
@@ -915,6 +925,7 @@ class Manager:
 
 
     def chat_since(self, n, tok=None):
+        self.prune_chat()
         return {"chat": [m for m in self.chat if m["id"] > n], "chat_total": self.chat_id, "me": self.pid(tok) if tok else None}
 
     def seat_of(self, tok):
@@ -1782,6 +1793,7 @@ def delete_room(tok, rid):
     if not tok or tok != m.host:
         return {"ok": False, "error": "只有房主可以刪除房間 (在房間的「新遊戲」畫面裡)"}
     m.abort = True; m._ans_ev.set(); m._step_ev.set()
+    m.chat = []   # 房間刪除: 聊天紀錄一起清掉
     with ROOMS_LOCK:
         ROOMS.pop(rid, None)
     return {"ok": True}
@@ -1882,6 +1894,7 @@ def reap_rooms():
                      and now - max(m.over_at, m.act) > IDLE_AFTER_OVER)   # 遊戲結束後只剩一個人掛機 5 分鐘: 請回大廳並刪除房間
         if idle_over or now - last > (180 if m.game_active() else 60):
             m.abort = True; m._ans_ev.set(); m._step_ev.set()
+            m.chat = []   # 房間被回收: 聊天紀錄一起清掉
             with ROOMS_LOCK:
                 ROOMS.pop(rid, None)
 
@@ -2386,6 +2399,7 @@ def main():
             try:
                 for m in list(ROOMS.values()):   # 每個房間都要偵測 (房主斷線要交棒),順便清掉沒人的房間
                     m.presence()
+                    m.prune_chat()
                 reap_rooms()
             except Exception:
                 pass

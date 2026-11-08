@@ -2040,7 +2040,7 @@ class 郭圖逢紀(Char):
 
     def on_other_wei(self, g, p, user, name):  # 別人偽裝時,我下個回合變成那個武將 (一次一隻)
         self.next_char = name
-        g.log(f"  {p.name}[郭圖&逢紀] 記下 {user.name} 偽裝成 {name},下個回合會變成他")
+        g.log(f"  {p.name}[郭圖&逢紀] 記下 {getattr(g, '_wei_who', user.name)} 偽裝成 {name},下個回合會變成他")
 
     def on_turn_start(self, g, p):
         if self.next_char and not _may(g, p, "郭圖&逢紀-變身"):
