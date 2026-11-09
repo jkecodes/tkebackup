@@ -796,8 +796,8 @@ window.SGS_LOG_TPL = (window.SGS_LOG_TPL || []).concat([
 ["捨牌回血 (可用)", "Discard to heal (ready)", "捨てて回復(使用可)"],
 ["令人出閃 (已用)", "Force a Dodge (used)", "閃を強要(使用済)"],
 ["令人出閃 (可用)", "Force a Dodge (ready)", "閃を強要(使用可)"],
-["全員換牌 (已用)", "Everyone swaps cards (used)", "全員カード交換(使用済)"],
-["全員換牌 (可用)", "Everyone swaps cards (ready)", "全員カード交換(使用可)"],
+["全員棄牌 (已用)", "Everyone discards (used)", "全員捨て札(使用済)"],
+["全員棄牌 (可用)", "Everyone discards (ready)", "全員捨て札(使用可)"],
 ["獲得錦囊 (已用)", "Take trick (used)", "錦嚢を得る(使用済)"],
 ["獲得錦囊 (可用)", "Take trick (ready)", "錦嚢を得る(使用可)"],
 ]);

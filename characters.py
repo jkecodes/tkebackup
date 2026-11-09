@@ -425,6 +425,7 @@ class 丁奉(Char):
 
     def on_any_damaged(self, g, p, tgt, n):
         if not p.flipped and tgt is not p:   # 不含自己; 每次傷害都各抽一次 (萬箭齊發 7 人受傷 = 抽 7 次)
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[丁奉] 有人受傷,抽 {n} 張")
             g.draw(p, n)
 
@@ -472,6 +473,7 @@ class 魏延(Char):
 
     def on_deal_damage(self, g, p, tgt, n):
         if g.trigger_ok(p, "魏延-抽牌") and _may(g, p, "魏延-抽牌"):
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[魏延] 造成傷害,抽 1 張")
             g.draw(p, 1)
 
@@ -576,6 +578,7 @@ class 孟獲(Char):
         if real in g.discard and g.trigger_ok(p, "孟獲-獲得") and _may(g, p, "孟獲-獲得"):
             g.discard.remove(real)
             p.hand.append(real)
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[孟獲] 獲得造成傷害的 {real}")
 
 
@@ -630,6 +633,7 @@ class 龐德(Char):
             p.turn_flags["pd_turn"] = g.turn_id
             g.discard.remove(real)
             p.hand.append(real)
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[龐德] 獲得 {user.name} 使用的 {real}")
 
 
@@ -738,6 +742,7 @@ class 司馬昭(Char):
     def on_any_trick(self, g, p, user, real):
         if not g.trigger_ok(p, "司馬昭-判定") or not _may(g, p, "司馬昭-判定"):
             return
+        g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
         j = g.flip_judge(p)
         g.link(f"{p.name}[司馬昭] 有人使用錦囊,判定 {j}")
         if j.color == "黑":
@@ -773,6 +778,7 @@ class 曹洪(Char):
 
     def on_any_damaged(self, g, p, tgt, n):
         if tgt is not p and p.hp < p.maxhp and g.trigger_ok(p, "曹洪-回血"):   # 滿血就不發動 (不然連鎖 / 特效白跑一次)
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[曹洪] 有人受到 {n} 點傷害,回 {n} 點體力")
             g.heal(p, n)
 
@@ -805,6 +811,7 @@ class 鄧艾(Char):
         if real.name in DELAYED_NAMES or not user.alive:
             return
         if g.trigger_ok(p, "鄧艾-扣血"):
+            g.new_dmg_chain()   # 別人的錦囊結算完才發動: 另開一條新連鎖 (不接在那張牌的連鎖後面)
             g.link(f"{p.name}[鄧艾] {user.name} 使用錦囊,扣 1 點體力 (可閃)")
             if not g.need_response(user, "閃", {"attacker": p}):
                 g.damage(p, user, 1)
@@ -1052,6 +1059,7 @@ class 崔琰(Char):
     def on_other_trick(self, g, p, user, real):
         if self.off or not g.trigger_ok(p, "崔琰-抽牌"):
             return
+        g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
         g.link(f"{p.name}[崔琰] 有人使用錦囊,抽 1 張")
         g.draw(p, 1)
         self.cnt += 1
@@ -1247,6 +1255,7 @@ class 邯鄲淳(Char):
         if getattr(self, "used_turn", None) == g.turn_id or not g.trigger_ok(p, "邯鄲淳-判定") or not _may(g, p, "邯鄲淳-判定"):   # 一回合一次
             return
         self.used_turn = g.turn_id
+        g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
         j = g.flip_judge(p)
         g.link(f"{p.name}[邯鄲淳] {user.name} 使用基本牌,判定 {j}")
         if j.color == "紅":
@@ -1517,6 +1526,7 @@ class 曹沖(Char):
             return
         if not p.agent.choose_skill(g, p, "曹沖-交換武將"):
             return
+        g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
         g.link(f"{p.name}[曹沖] 要和 {user.name} 永遠交換武將")
         p._char, user._char = user._char, p._char
         for q in (p, user):
@@ -1701,6 +1711,7 @@ class 劉諶(Char):
             p.turn_flags["lc"] = False
             g.log(f"  {p.name}[劉諶] 決鬥造成 2 點傷害,本回合的技能失效")
         if g.trigger_ok(p, "劉諶-抽牌"):
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[劉諶] 決鬥造成傷害,和 {tgt.name} 各抽 1 張")
             g.draw(p, 1)
             g.draw(tgt, 1)
@@ -1838,6 +1849,7 @@ class 李嚴(Char):
 
     def on_other_trick(self, g, p, user, real):
         if real.name in DELAYED_NAMES and g.trigger_ok(p, "李嚴-延時") and _may(g, p, "李嚴-延時"):
+            g.new_dmg_chain()  # 結算完才發動: 另開一條新連鎖
             g.link(f"{p.name}[李嚴] {user.name} 使用延時錦囊,抽 2 張")
             g.draw(p, 2)
 

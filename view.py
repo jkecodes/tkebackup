@@ -194,7 +194,7 @@ ONCE_SKILLS = {   # 一回合一次的技能: (顯示名稱, 這回合用過了�
     "孔融": [("重鑄", lambda g, p, c: getattr(c, "last", None) == g.turn_id, False)],
     "張角": [("捨牌回血", lambda g, p, c: bool(p.turn_flags.get("zj")), True)],
     "李儒": [("令人出閃", lambda g, p, c: bool(p.turn_flags.get("lr")), True)],
-    "王允": [("全員換牌", lambda g, p, c: bool(p.turn_flags.get("wy2")), True)],
+    "王允": [("全員棄牌", lambda g, p, c: bool(p.turn_flags.get("wy2")), True)],
     "龐德": [("獲得錦囊", lambda g, p, c: p.turn_flags.get("pd_turn") == g.turn_id, False)],
 }
 

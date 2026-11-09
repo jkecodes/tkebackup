@@ -302,6 +302,7 @@ class Game:
                       "孟獲-獲得", "馬良-交牌", "司馬昭-判定", "夏侯惇-判定", "鄧艾-扣血", "滿寵-反擊", "張昭-翻面", "邯鄲淳-判定", "劉諶-抽牌",
                       "李嚴-抽牌", "李嚴-延時", "吳懿-抽牌"}
     PASSIVE_CAP = 8
+    ALL_HIT_SKILLS = {"王允-全員重抽"}   # 沒有指定對象、但每個人都會受影響的主動技能 (要先問大家有沒有 ⚡ 可接)
 
     def trigger_ok(self, p, skill):
         """主動發動的武將技能在同一條連鎖上最多一次;被動技能不限次數 (上限 PASSIVE_CAP)。可發動則登記並回傳 True。"""
@@ -1463,6 +1464,15 @@ class Game:
                     self.log(f"  呂布「無效」: {card.name} 沒有效果")
                     return
                 if not (p.alive and tgt.alive):
+                    return
+            if tgt is None and card.name in self.ALL_HIT_SKILLS:   # 王允「全員棄牌」這類打到每一個人的技能: 每個被影響的人都有機會先接連鎖 ⚡ (跟被指定一樣)
+                for q in list(self.order_from(p)):
+                    if q is p or not (p.alive and q.alive):
+                        continue
+                    if self.sha_window(p, q, card):
+                        self.log(f"  呂布「無效」: {card.name} 沒有效果")
+                        return
+                if not p.alive:
                     return
             card.run(self, p, tgt)
             return
