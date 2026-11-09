@@ -403,6 +403,8 @@ class 孫堅(Char):
 
     def on_targeted(self, g, p, user, card):
         using = getattr(card, "orig", card)  # 正在使用的那張牌不能被選
+        if g.in_group:   # 南蠻入侵 / 萬箭齊發 / 突襲 / 飢餓這種「全部人都是對象」的錦囊不算「對你使用」
+            return
         if g.is_trick(card) and g.trigger_ok(p, "孫堅-棄牌") and _may(g, p, "孫堅-棄牌"):
             pool = [x for x in user.hand + user.equip_cards() + [j for j in user.judge if j.name != "閃電"]
                     if x is not using]
