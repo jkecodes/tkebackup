@@ -1474,6 +1474,9 @@ class Game:
                         return
                 if not p.alive:
                     return
+            self.chain_all_window(p, card, tgt)   # 「全部都問」模式: 技能發動也先問大家有沒有 ⚡ 可接
+            if not p.alive:
+                return
             card.run(self, p, tgt)
             return
         self.cur_card = card
@@ -1997,6 +2000,9 @@ class Game:
                 if isinstance(card, SkillAct):
                     self.new_chain()
                     self.link(f"{q.name} 在 {cur.name} 的回合發動 {card!r}")
+                    self.chain_all_window(q, card, t)   # 「全部都問」模式: 別人的技能發動也要先問有沒有 ⚡ 可接
+                    if not (q.alive and cur.alive):
+                        continue
                     card.run(self, q, t)
                 else:
                     self.log(f"{q.name} 在 {cur.name} 的回合使用 {card}")
