@@ -399,6 +399,7 @@ html .pl.target{filter:drop-shadow(0 0 5px #46e0a0) drop-shadow(0 0 14px rgba(70
 #tablewrap.pannable{cursor:grab}
 .eq.pk{outline:2px solid #ffd54a;outline-offset:0;box-shadow:0 0 5px 1px #ffd54a;cursor:pointer;animation:pkp 1s ease-in-out infinite;position:relative;z-index:5;padding:0;margin:0;flex:none;max-width:none;background:#0d0f13;gap:0;display:block}@keyframes pkp{50%{box-shadow:0 0 8px 2px #ffd54a}}
 #status:empty{display:none}
+#status:not(.err){display:none!important}   /* 狀態欄不顯示 (等待房主 / 大廳 / 段位提示都拿掉);只有「連線中斷」要讓人看得到 */
 .hasprev{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #bHand{display:none;position:relative;order:9;margin:4px 8px 0 auto;z-index:31;min-height:30px;padding:3px 12px;font-size:13px;border-radius:15px;background:rgba(8,16,30,.88);color:var(--text);border:1px solid var(--line);cursor:pointer}
 @media (max-width:600px),(pointer:coarse) and (max-height:520px){body.hand-off #hand{display:none!important}}   /* 沒有按鈕的螢幕不能留著收起狀態 */
@@ -2225,7 +2226,7 @@ document.addEventListener("wheel", e => {   // 牌桌中間的牌堆 (亮牌 / �
 }, {passive: false});
 function renderRankedLobby(snap) {   // 段位模式大廳: 每個人只能選「參戰」或「觀戰」
   const M = $("#modal"); M.textContent = "";
-  $("#status").textContent = "段位模式: 想打的人按參戰";
+  $("#status").textContent = "";
   if (!S.rlSnd) { S.rlSnd = true; try { if (window.SGS_FX) SGS_FX.sfx("arena"); } catch (e) {} }   // 進到段位大廳播一次音效 (離開房間 / 開局後重置)
   const seated = snap.mine != null;
   const free = Array.from({length: snap.n}, (_, i) => i).find(i => snap.humans.includes(i) && !snap.claims.includes(i));
@@ -2362,9 +2363,9 @@ async function poll(force) {
     for (const id of ["#bNew", "#bPause", "#bStep", "#speed"]) { $(id).disabled = !snap.is_host; $(id).title = snap.is_host ? "" : "只有房主可以操作"; }
     syncSpeed(snap);
     syncRanked(snap);
-    $("#status").textContent = "";
+    $("#status").classList.remove("err"); $("#status").textContent = "";
     if (snap.error) { let e = $("#err"); if (!e) { e = h("div", {class: "err", id: "err"}); $("#app").prepend(e); } e.textContent = "引擎錯誤: " + snap.error; }
-  } catch (e) { $("#status").textContent = "連線中斷… " + e; }
+  } catch (e) { $("#status").classList.add("err"); $("#status").textContent = "連線中斷… " + e; }
   finally { busy = false; }
 }
 
