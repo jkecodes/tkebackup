@@ -51,7 +51,7 @@ os.makedirs(DATA, exist_ok=True)
 
 
 def make_ai(level):
-    """電腦代理: 全部難度都是最強的 ProAgent (移植自實戰機器人),難度越低失誤率越高 (見 ProAgent.ERR)。"""
+    """電腦代理: 全部難度都是最強的 ProAgent (移植自實戰機器人),難度越低,進階判斷關得越多 (見 ProAgent.adv)。"""
     return ProAgent(level)
 
 

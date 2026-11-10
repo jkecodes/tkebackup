@@ -50,6 +50,49 @@ def _hook(method):
     return f
 
 
+_METHODS = ("respond", "choose_skill", "choose_mode", "choose_option", "choose_count", "choose_discard", "choose_from",
+            "choose_target", "choose_offturn", "pick_pile", "choose_dir", "choose_x", "choose_chain", "show_card", "choose_give", "choose_borrow")
+
+
+def attach_strategies(cls):
+    """把「先問武將策略檔」的掛鉤加到任何代理類別上 (保留該類別自己原本的方法當後備)。ProAgent 用這個接上。"""
+    cls.use_strategy = True
+
+    def wrap(method):
+        base = getattr(cls, method)
+
+        def f(self, g, p, *a, **k):
+            s = strategy_for(p._char.name) if getattr(p, "_char", None) is not None and self.use_strategy else None
+            h = getattr(s, method, None) if s else None
+            if h:
+                r = h(self, g, p, *a, **k)
+                if r is not NotImplemented:
+                    return r
+            return base(self, g, p, *a, **k)
+        f.__name__ = method
+        return f
+
+    base_act = cls.act
+    for m in _METHODS:
+        if hasattr(cls, m):
+            setattr(cls, m, wrap(m))
+    hooked_act = wrap("act")
+
+    def act(self, g, p, options):
+        s = strategy_for(p._char.name) if getattr(p, "_char", None) is not None and self.use_strategy else None
+        flt = getattr(s, "act_filter", None) if s else None
+        if flt:
+            keep = flt(self, g, p, options)
+            if keep is not None and len(keep) < len(options):
+                if not keep:
+                    return None
+                r = hooked_act(self, g, p, [options[i] for i in keep])
+                return None if r is None else keep[r]
+        return hooked_act(self, g, p, options)
+    cls.act = act
+    return cls
+
+
 class StrategyAgent(LeveledAgent):
     use_strategy = True
 

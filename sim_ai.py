@@ -20,10 +20,8 @@ CAMP = {"主公": "主公陣營", "忠臣": "主公陣營", "反賊": "反賊", 
 
 
 def make_agent(level):
-    if level >= 5:
-        from ai_pro import ProAgent
-        return ProAgent()
-    return LeveledAgent(level)
+    from ai_pro import ProAgent   # 線上用的就是 ProAgent,難度 1~5 = 逐級開啟進階判斷
+    return ProAgent(level)
 
 
 def play(seed, seat, level, opp, char=None, n=4):

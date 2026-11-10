@@ -2,6 +2,7 @@
 import os
 datas = [
     ("web", "web"),
+    ("strategies", "strategies"),   # 武將專屬策略檔 (strategy_agent.py 用檔案路徑動態載入)
     ("character_images.json", "."),
     ("characters.md", "."),
     ("CHANGELOG.md", "."),

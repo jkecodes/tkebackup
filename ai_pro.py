@@ -65,15 +65,27 @@ def slot_of(c):
 class ProAgent(LeveledAgent):
     """第 5 級: 用實戰機器人的優先度與戰術取代第 4 級的出牌 / 選牌判斷。"""
 
-    # 難度 1~5 都是這個最強電腦: 越簡單,「隨機亂出牌 / 該響應卻不響應」的機率越高 (極強 5 級完全不失誤)
-    ERR = {1: (0.45, 0.30), 2: (0.28, 0.18), 3: (0.16, 0.10), 4: (0.08, 0.05), 5: (0.0, 0.0)}   # (亂出牌機率, 響應失誤機率)
+    # 難度 1~5: 不再「隨機亂出牌 / 該響應卻不響應」(看起來像壞掉),而是逐級關掉進階判斷,基本常識 (回血 / 裝備 / 出殺出閃 / 不打已知隊友) 一直保留:
+    #   5 極強: 全開
+    #   4 很強: 關掉連招規劃與武將專屬戰術 (發憤圖強爆發 / 鐵索連環連擊 / 偽裝計畫 / 集火特定武將…)
+    #   3 強:   再關掉「挑最佳目標」 (改成在可打的敵人裡隨機選)
+    #   2 中:   再關掉身分推理 (不從公開行為推測誰是反賊 / 忠臣, 也不記仇)
+    #   1 弱:   再關掉 ⚡ 連鎖牌 / 受傷響應的取捨 (被打時只會出閃 / 桃,不用反擊 / 調虎離山 / 占卜 / 弱化 / 降雷)
+    def adv(self, name):
+        """這個進階判斷在目前難度有沒有開。"""
+        need = {"combo": 5, "pick": 4, "infer": 3, "bolt": 2}[name]   # 難度 >= need 才開
+        return self.err_level >= need
 
     def __init__(self, level=5):
         super().__init__(level=4)
-        self.level = 5   # 內部判斷一律照最強電腦;難度只影響下面的失誤率
-        self.err_level = max(1, min(5, int(level)))
+        self.level = 5
+        self.err_level = max(1, min(5, int(level)))   # 內部判斷一律走 5 級的程式,難度只決定上面哪些進階判斷有開
         self._tries = {}
         self._dg_want = None
+
+    def observe(self, g, me, kind, src, tgt):
+        if self.adv("infer"):   # 2 級以下不從公開行為推理身分 (態度只剩「主公公開 / 已翻開的身分」這些明擺著的資訊)
+            super().observe(g, me, kind, src, tgt)
 
     # ------------------------------------------------------------ 卡牌優先度
     def base_pri(self, c):
@@ -216,10 +228,6 @@ class ProAgent(LeveledAgent):
     def act(self, g, p, options):
         if not options:
             return None
-        if g.rng.random() < self.ERR[self.err_level][0]:   # 失誤: 隨機亂出一張 (或直接結束)
-            ok = [k for k, (c, _t) in enumerate(options) if getattr(c, "orig", None) is None or c.orig in p.hand]
-            i = g.rng.randrange(len(ok) + 1)
-            return None if i == len(ok) else ok[i]
         self.update_lethal(g, p)
         if self._tries.get("turn") != g.turn_id:
             self._tries = {"turn": g.turn_id}
@@ -232,8 +240,11 @@ class ProAgent(LeveledAgent):
         red = self.redirect_cnt(p)
         names = [fn(c) for c in hand]
         sbr = ("發憤圖強" in names) and red > 0 and bool(foes) and (p.hp >= 2 or "占卜" in names or "桃" in names)
-        chain_plan = self.chain_plan(g, p)
-        chained = self.chained_enemy(g, p)
+        if not self.adv("combo"):   # 4 級以下不做連招規劃
+            sbr = False
+            self._lethal = False
+        chain_plan = self.chain_plan(g, p) if self.adv("combo") else None
+        chained = self.chained_enemy(g, p) if self.adv("combo") else None
         combo_on = sbr or bool(chained)
         keep_floor = 0
         if owed > 0 and red == 0 and not chained and not chain_plan and not self._lethal:
@@ -268,7 +279,10 @@ class ProAgent(LeveledAgent):
                 continue
             if pri > 0:
                 cands.append((bucket, pri, i, n))
-        cands = self.tactics(g, p, options, cands, foes)
+        if self.adv("combo"):
+            cands = self.tactics(g, p, options, cands, foes)
+        elif g.void and p is g.cur:   # 規則限制 (呂布 無效全場): 只能出基本牌,這是基本常識,所有難度都遵守
+            cands = [c for c in cands if isinstance(options[c[2]][0], SkillAct) or getattr(real(options[c[2]][0]), "kind", "") == "basic"]
         r = self.char_act(g, p, options)
         if r is not None:
             cands.append(r)
@@ -504,6 +518,12 @@ class ProAgent(LeveledAgent):
 
     def best_target(self, g, p, card, idx_t):
         best, bs = None, -1e9
+        if not self.adv("pick"):   # 3 級以下不挑最佳目標: 只排除「不能打 / 打了沒用」的,在剩下的敵人裡隨機選
+            ok = [(i, t) for i, t in idx_t if hasattr(t, "hp") and self.tscore(g, p, t) > -100 and self.atk_adj(g, p, card, t) > -100]
+            if not ok:
+                return None
+            i, t = g.rng.choice(ok)
+            return i, self.tscore(g, p, t)
         for i, t in idx_t:
             if not hasattr(t, "hp"):
                 continue
@@ -706,6 +726,11 @@ class ProAgent(LeveledAgent):
             return best
         return "HAND" if "HAND" in cands else best
 
+    def choose_offturn(self, g, p, options, cur, when):
+        if not self.adv("bolt"):   # 1 級不用 ⚡ 連鎖牌 (弱化 / 強化 / 降雷 / 坐收漁利 …)
+            return None
+        return super().choose_offturn(g, p, options, cur, when)
+
     def choose_skill(self, g, p, skill):
         if skill == "貫石斧-強中":
             return True
@@ -740,8 +765,6 @@ class ProAgent(LeveledAgent):
 
     # ------------------------------------------------------------ 響應
     def respond(self, g, p, need, cands, ctx):
-        if need in ("閃", "殺", "桃") and not (need == "桃" and ctx.get("target") is p) and g.rng.random() < self.ERR[self.err_level][1]:   # 失誤: 該響應卻不出 (自己瀕死時不失手)
-            return None
         if need in ("殺", "閃", "火攻", "借刀殺人", "青龍追擊") and cands:
             if need == "借刀殺人" and self.attitude(g, p, ctx["victim"]) >= 0:
                 return None
@@ -753,7 +776,7 @@ class ProAgent(LeveledAgent):
         if need == "無懈" and ctx.get("source") is p and p._char.name != "諸葛亮":
             return None
         if need == "受傷響應":
-            return self.react_damage(g, p, cands, ctx)
+            return self.react_damage(g, p, cands, ctx) if self.adv("bolt") else None
         return super().respond(g, p, need, cands, ctx)
 
     def react_damage(self, g, p, cands, ctx):
@@ -806,9 +829,11 @@ class ProAgent(LeveledAgent):
         return best if best._char.name in order else max(cands, key=lambda q: q.hp)
 
     def choose_x(self, g, p):
-        return 5
+        return 5 if self.adv("combo") else 2 if p.hp >= 3 else 1
 
     def choose_option(self, g, p, skill, labels):
+        if skill == "發憤圖強-少棄" and not self.adv("combo"):
+            return 0   # 4 級以下不玩「少棄牌吃傷害再轉給敵人」的爆發
         if skill == "發憤圖強-少棄":
             ks = []
             for lb in labels:
@@ -846,3 +871,7 @@ class _FakeSha:
 
 
 _FakeSha = _FakeSha()
+
+
+from strategy_agent import attach_strategies   # noqa: E402  武將專屬策略 (strategies/<武將名>.py) 掛上來
+attach_strategies(ProAgent)
