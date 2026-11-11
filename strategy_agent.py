@@ -58,11 +58,19 @@ def attach_strategies(cls):
     """把「先問武將策略檔」的掛鉤加到任何代理類別上 (保留該類別自己原本的方法當後備)。ProAgent 用這個接上。"""
     cls.use_strategy = True
 
+    def strat(self, p):   # 「武將專屬戰術」只有最高難度才開 (ProAgent.adv("combo")); 沒有難度分級的代理一律開
+        if getattr(p, "_char", None) is None or not self.use_strategy:
+            return None
+        adv = getattr(self, "adv", None)
+        if adv is not None and not adv("combo"):
+            return None
+        return strategy_for(p._char.name)
+
     def wrap(method):
         base = getattr(cls, method)
 
         def f(self, g, p, *a, **k):
-            s = strategy_for(p._char.name) if getattr(p, "_char", None) is not None and self.use_strategy else None
+            s = strat(self, p)
             h = getattr(s, method, None) if s else None
             if h:
                 r = h(self, g, p, *a, **k)
@@ -79,7 +87,7 @@ def attach_strategies(cls):
     hooked_act = wrap("act")
 
     def act(self, g, p, options):
-        s = strategy_for(p._char.name) if getattr(p, "_char", None) is not None and self.use_strategy else None
+        s = strat(self, p)
         flt = getattr(s, "act_filter", None) if s else None
         if flt:
             keep = flt(self, g, p, options)

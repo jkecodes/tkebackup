@@ -148,6 +148,30 @@ class ProAgent(LeveledAgent):
     def foes_of(self, g, p):
         return [q for q in g.others(p) if self.tscore(g, p, q) > -100]
 
+    def dir_score(self, g, p, side, n=1):
+        """調虎離山往這個方向轉 n 點傷害的期望價值: 依序每個人「沒有閃而中招」的機率 x 打到他的好壞 (敵人 +, 隊友 -)。
+        閃只佔牌堆約 3%, 所以幾乎都是該方向第一個人中招。"""
+        prob, score = 1.0, 0.0
+        for q in g.side_order(p, side):
+            pf = 0.97 ** len(q.hand)
+            if q.has_armor("八卦陣") and not g.equip_off():
+                pf *= 0.5
+            if self.attitude(g, p, q) >= 1.0:
+                val = -1.5 - (2 if q is g.lord else 0) - (1 if q.hp <= n else 0)
+            else:
+                ts = self.tscore(g, p, q)
+                val = -1.0 if ts <= -100 else 1 + ts / 100 + (0.5 if q.hp <= n else 0)
+            score += prob * pf * val
+            prob *= 1 - pf
+        return score
+
+    def choose_dir(self, g, p):
+        """突襲 / 調虎離山的方向: 往敵人那邊轉 (3 級以下照舊隨機)。"""
+        if not self.adv("pick"):
+            return super().choose_dir(g, p)
+        l, r = self.dir_score(g, p, "L"), self.dir_score(g, p, "R")
+        return "L" if l > r else "R" if r > l else super().choose_dir(g, p)
+
     def burst(self, g, p):
         hand = p.hand
         hammer = 1 if (p.has_weapon("流星錘") or any(fn(c) == "流星錘" for c in hand)) else 0
