@@ -89,6 +89,28 @@ class RandomAgent:
         best = max(names, key=lambda nm: sc.get(nm, 0) - (4 if nm in self.DG_BAD else 0) + 1.5 * g.rng.random())   # 加一點隨機,避免每次都選同一個
         return names.index(best)
 
+    def dg_scores(self, g, p, names, foes=None):
+        """偽裝推薦分數 (實測表 dg_table.py, 10 萬局自我對戰量出來的): 整體分數 + 目前情境的加減。分數 > 0 = 比隨便選好。"""
+        from dg_table import BASE, CTX
+        from view import full_name
+        hand = [full_name(c.name) for c in p.hand]
+        hand = [n for n in hand if n != "偽裝"]
+        foes = foes or g.others(p)
+        conds = []
+        if len(g.alive_players()) == 2:
+            conds.append("單挑")
+        if p.hp <= 2:
+            conds.append("血<=2")
+        if len(hand) <= 2:
+            conds.append("手牌<=2")
+        if sum(1 for n in hand if n in ("殺", "火殺", "冰殺", "雷殺")) >= 2:
+            conds.append("殺>=2")
+        if any(n in ("南蠻入侵", "萬箭齊發") for n in hand):
+            conds.append("有南蠻萬箭")
+        if max((len(q.hand) for q in foes), default=0) >= 5:
+            conds.append("敵手牌>=5")
+        return {nm: round(BASE.get(nm, 0) + sum(CTX[c].get(nm, 0) for c in conds), 1) for nm in names}
+
     def _disguise_scores(self, g, p, names):
         n_sha = sum(1 for c in p.hand if c.name in ("殺", "火殺", "冰殺", "雷殺"))
         n_aoe = sum(1 for c in p.hand if c.name in ("南", "萬", "南蠻入侵", "萬箭齊發"))

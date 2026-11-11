@@ -18,16 +18,17 @@ from engine import Player as Player_cls
 from view import full_name
 
 # ---------------------------------------------------------------- 卡牌優先度 (全名)
+# 2026-11 用 priostat.py 的 10 萬局自我對戰重新校正: 「起手有這張牌的勝率變化」和原本的表各佔一半重排
+# (對照測試 prioab.py: 換沒調過的種子 2 萬組,連同偽裝實測表一起 +1.85 個百分點)。發憤圖強 / 偽裝維持原值。
 PRI = {
-    "發憤圖強": 444, "緩衝盾": 100, "反擊": 99, "調虎離山": 98, "偽裝": 97, "無中生有": 95, "增兵減灶": 95, "未雨綢繆": 94,
-    "聲東擊西": 93, "降雷": 92, "隔岸觀火": 92, "拋磚引玉": 91, "五穀豐登": 90,
-    "過河拆橋": 85, "順手牽羊": 84, "酒": 81, "桃": 80, "流星錘": 80, "閃": 75, "占卜": 74, "飢餓": 74, "鴻門宴": 74,
-    "強化": 73, "萬箭齊發": 73, "南蠻入侵": 72, "決鬥": 71, "樂不思蜀": 71, "殺": 70, "無懈可擊": 70, "突襲": 70,
-    "兵糧寸斷": 70, "藤甲": 70, "青釭劍": 70, "火攻": 69, "笑裡藏刀": 68,
-    "諸葛連弩": 65, "孔雀羽扇": 65, "孤注一擲": 65, "鐵索連環": 60, "八卦陣": 60, "貫石斧": 60, "火盾": 60, "仁王盾": 55,
-    "弱化": 50, "桃園結義": 50, "轉移": 50, "方天畫戟": 50, "丈八蛇矛": 50, "+1馬": 50, "-1馬": 50,
-    "借刀殺人": 45, "出其不意": 40, "草木皆兵": 40, "毒": 35,
-    "雷盾": 30, "冰盾": 30, "投桃報李": 30, "閃電": 30, "青龍偃月刀": 20, "寒冰劍": 0, "麒麟弓": 0,
+    "發憤圖強": 444, "緩衝盾": 100, "反擊": 99, "調虎離山": 98, "偽裝": 97, "增兵減灶": 95, "流星錘": 95, "無中生有": 94,
+    "酒": 93, "飢餓": 92, "南蠻入侵": 92, "順手牽羊": 91, "萬箭齊發": 90, "桃": 85, "拋磚引玉": 84, "未雨綢繆": 81,
+    "五穀豐登": 80, "閃": 80, "決鬥": 75, "隔岸觀火": 74, "過河拆橋": 74, "藤甲": 74, "強化": 73, "殺": 73,
+    "鴻門宴": 72, "聲東擊西": 71, "突襲": 71, "占卜": 70, "樂不思蜀": 70, "青釭劍": 70, "火攻": 70, "孔雀羽扇": 70,
+    "八卦陣": 70, "笑裡藏刀": 69, "降雷": 68, "無懈可擊": 65, "孤注一擲": 65, "鐵索連環": 65, "兵糧寸斷": 60, "諸葛連弩": 60,
+    "火盾": 60, "仁王盾": 60, "貫石斧": 55, "弱化": 50, "轉移": 50, "方天畫戟": 50, "丈八蛇矛": 50, "+1馬": 50,
+    "-1馬": 50, "借刀殺人": 50, "投桃報李": 45, "出其不意": 40, "草木皆兵": 40, "桃園結義": 35, "毒": 30, "雷盾": 30,
+    "冰盾": 30, "閃電": 30, "青龍偃月刀": 20, "寒冰劍": 0, "麒麟弓": 0,
 }
 DUAL_W = {"甘寧", "夏侯淵"}
 DUAL_A = {"周瑜", "甘寧", "夏侯淵"}
@@ -88,12 +89,17 @@ class ProAgent(LeveledAgent):
             super().observe(g, me, kind, src, tgt)
 
     # ------------------------------------------------------------ 卡牌優先度
+    pri = PRI        # 卡牌優先度表 (測試台可以換成別張表做對照)
+    threat = {}      # 武將集火加分 (武將名 → 加到 tscore 的分數)。實測「照武將勝率加分」沒效果 (+0.2 / +0.3 / +0.05 / -0.2), 所以留空
+    dg_data = 1      # 偽裝變成誰: 0 = 原本的固定順序, 1 = 照實測表 (對照測試 +1.03 個百分點)
+    dg_th = 0.5      # 實測表分數至少多少才用偽裝
+
     def base_pri(self, c):
         n = fn(real(c))
         if is_sha(real(c)):
-            return PRI["殺"]
-        if n in PRI:
-            return PRI[n]
+            return self.pri["殺"]
+        if n in self.pri:
+            return self.pri[n]
         return 30 if getattr(real(c), "kind", "") in ("weapon", "armor", "horse") else 50
 
     def equipped(self, p, slot):
@@ -138,6 +144,8 @@ class ProAgent(LeveledAgent):
         if att >= 1.0:
             return -999
         sc = 50 - q.hp * 5 - len(q.hand) * 0.3 + (25 if q.hp <= 1 else 0) - att * 6
+        if self.threat and self.adv("combo"):   # 強的武將先打 (5 級才開)
+            sc += self.threat.get(q._char.name, 0)
         if p.role == "反賊" and q is g.lord and not getattr(g, "hidden_lord", False):
             sc += 300 if self._lethal else (50 if q.hp <= 2 else 15)
         elif p.role == "內奸" and q is g.lord and not getattr(g, "hidden_lord", False):
@@ -337,6 +345,17 @@ class ProAgent(LeveledAgent):
         low = p.hp <= 2 or (team and lord is not None and lord.alive and lord.hp <= 2)
         foes = self.foes_of(g, p)
         used = g.__dict__.setdefault("_pro_ld", set())
+        if self.dg_data:   # 照實測表挑分數最高的 (dg_table.py)
+            taken = {q._char.name for q in g.players} | {x.name for q in g.players for x in q.disguise}
+            from characters import ROSTER
+            pool = [nm for nm in ROSTER if nm not in taken and not (nm == "劉禪" and p.idx in used)]
+            if pool:
+                sc = self.dg_scores(g, p, pool, foes)
+                best = max(pool, key=lambda nm: sc[nm])
+                if sc[best] >= self.dg_th:
+                    return best
+            if self.dg_data == 1:
+                return None
         if len(g.alive_players()) == 2 and not self.on_field(g, "劉禪") and "劉禪" not in used:
             return "劉禪"
         if tricks >= 3 and low and not self.on_field(g, "劉備"):
@@ -586,7 +605,7 @@ class ProAgent(LeveledAgent):
             if not foes or len(hand) < 2:
                 return None
             v = sorted(self.keep_val(g, p, c) for c in hand)
-            if not (v[0] < PRI["殺"] and v[1] < PRI["殺"]):
+            if not (v[0] < self.pri["殺"] and v[1] < self.pri["殺"]):
                 return None
             r = self.best_target(g, p, _FakeSha, idx_t)
             return (5, 60, r[0], n) if r else None

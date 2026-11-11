@@ -270,8 +270,8 @@ class HumanAgent:
         opts = [self._copt(i, x) for i, x in enumerate(labels)]
         if skill == "偽裝":   # 標出依目前局面推薦的偽裝對象 (前端有搜尋欄)
             from ai import HeuristicAgent
-            sc = HeuristicAgent()._disguise_scores(g, p, list(labels))
-            top = {n for n in sorted(labels, key=lambda n: -sc.get(n, 0))[:5] if sc.get(n, 0) > 0}
+            sc = HeuristicAgent().dg_scores(g, p, list(labels))   # 實測表: 變身後那個回合的平均局面變化
+            top = {n for n in sorted(labels, key=lambda n: -sc.get(n, 0))[:5] if sc.get(n, 0) >= 0.5}
             for o in opts:
                 o["rec"] = labels[o["i"]] in top
                 o["score"] = round(sc.get(labels[o["i"]], 0), 1)
