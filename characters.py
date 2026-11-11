@@ -112,6 +112,7 @@ class Char:
     one_card = False                                # 全場每人每回合只能用 1 張牌 (曹沖)
     cap3 = False                                    # 全場手牌上限最多 3 (劉禪)
     no_extra_draw = False                           # 全場一般抽牌以外完全不能抽牌 (張紘)
+    peach_lock = False                              # 其他人除了瀕死救人,不能在出牌階段吃桃 (賈詡自己不受限)
     single_to_all = False                           # 單一對象錦囊對其他所有人有效 (關興)
     basic_as_trick = False                          # 全場基本牌的種類也算錦囊 (魯肅)
     def blocks_card(self, g, p, card): return False  # 這張牌你不能使用
@@ -2020,7 +2021,8 @@ class 袁術(Char):
 class 賈詡(Char):
     name, faction = "賈詡", "群"
 
-    # 技能一: 除了瀕死,桃只能對自己用 (桃本來就只能對自己用,所以自己隨時可以用桃,不需要另外限制)
+    # 技能一: 賈詡在場時,其他人除了瀕死 (救人 / 被救) 都不能用桃,只有賈詡自己可以 (engine.peach_locked)
+    peach_lock = True
 
     def skill_options(self, g, p):  # 出一張殺,使 2 個人決鬥
         shas = [c for c in p.hand if c.name == "殺"]

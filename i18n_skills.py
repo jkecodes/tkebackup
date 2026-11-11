@@ -191,7 +191,7 @@ T = {
         ("Once per turn, draw 2 extra cards, but you can't play Slash", "1ターン1回、2枚多く引ける。ただし殺は出せない")],
 "袁術": [("If your cards are discarded (including judgement), others must discard 1 of their own or lose 1 HP (dodgeable)", "自分のカードが捨てられた時(判定も含む)、他人は自分のカード1枚を捨てるか体力-1(閃で防げる)"),
         ("Each Slash you play costs you 1 HP", "殺を出すたびに体力-1")],
-"賈詡": [("Except when dying, you can't use Peach (except on yourself)", "瀕死の時以外、桃を使えない(自分には使える)"),
+"賈詡": [("While Jia Xu is in play, nobody can use Peach except when dying (to save or be saved); only Jia Xu himself may", "賈詡が場にいる間、瀕死(救助・被救助)以外は誰も桃を使えない。賈詡自身だけは使える"),
         ("Play 1 Slash to make 2 players duel", "殺1枚で2人を決闘させられる")],
 "郭圖&逢紀": [("The number of Slashes you may play this turn = your HP", "このターン出せる殺の枚数 = 体力"),
              ("When others use Disguise, you may become that general next turn (one at a time)", "他人が偽装を使った時、次のターンにその武将になれる(1体ずつ)")],

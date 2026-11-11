@@ -170,6 +170,7 @@
     if (/武將牌翻(?:面|成)/.test(s) && !/不會翻面|不能被降雷翻回/.test(s)) return playSfx("flip");
     if (/偽裝成/.test(s)) return playSfx("disguise");
     if (/棄置|棄掉|棄\s*[\d兩]|丟掉|棄牌|棄光/.test(s) && !/放棄|不依體力棄牌/.test(s)) return playSfx("discard");   // 棄牌 / 被棄置
+    if (/有人使用|使用(?:基本|錦囊|裝備)牌?[,,]|[,,]判定 /.test(s)) return;   // 技能說明行 (司馬昭「有人使用錦囊,判定 黑降」): 後面的牌是判定牌,不是這個人出的牌,不要飛
     const who = (s.match(/^P(\d+)\(/) || [])[1];
     const tgt = (s.match(/對 P(\d+)\(/) || s.match(/放入 P(\d+)\(/) || [])[1];
     if (!who || !/使用|打出|裝備|放入|發動/.test(s) || /使用〈/.test(s)) return;

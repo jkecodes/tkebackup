@@ -725,6 +725,10 @@ class Game:
                         break
         return n
 
+    def peach_locked(self, p):
+        """賈詡在場: 賈詡以外的人除了瀕死救人,不能在出牌階段用桃回血。"""
+        return any(q.char.peach_lock for q in self.alive_players() if q is not p)
+
     def equip_off(self):
         """呂布無效 / 太史慈: 全場裝備 (武器、防具、坐騎) 不產生效果。"""
         return self.void or any(q.char.equip_void for q in self.alive_players())
@@ -1184,7 +1188,7 @@ class Game:
                         if len(near) >= 2:
                             opts += [(c, combo) for combo in itertools.combinations(near, min(3, len(near)))]
             elif n == "桃":
-                if p.hp < p.maxhp:
+                if p.hp < p.maxhp and not self.peach_locked(p):
                     opts.append((c, None))
             elif n == "酒":
                 if not self.jiu:
