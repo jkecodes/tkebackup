@@ -478,7 +478,8 @@ void main(){
     const gl = cv.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false });
     if (!gl) return false;
     cv._gl = gl;
-    const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
+    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); done && done(); });   // 顯示卡 / 記憶體吃緊被系統收回 context: 立刻藏掉,不要留一塊空白 (白底) 畫布
+    const mk =(type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
     const vs = mk(gl.VERTEX_SHADER, VS), fs = mk(gl.FRAGMENT_SHADER, FS); if (!vs || !fs) return false;
     const pg = gl.createProgram(); gl.attachShader(pg, vs); gl.attachShader(pg, fs); gl.linkProgram(pg);
     if (!gl.getProgramParameter(pg, gl.LINK_STATUS)) return false;
@@ -495,7 +496,7 @@ void main(){
     const uT = U("t"), uI = U("I"), uH = U("hh"), seed = rnd() * 50;
     const t0 = performance.now();
     function frame(now) {
-      if (!el.isConnected) { done && done(); return; }
+      if (!el.isConnected || gl.isContextLost()) { done && done(); return; }
       const t = (now - t0) / 1000; if (t > T + .1) { done && done(); return; }
       const I = cfg.I(t);
       gl.uniform1f(uT, t + seed); gl.uniform1f(uI, I);
@@ -510,14 +511,24 @@ void main(){
 
   /* 火焰畫布: 同時最多 3 個,播完立刻釋放 WebGL context (不然每播一次就多留一個,越積越多、吃掉一堆記憶體) */
   let fireLive = 0;
-  function startFire(cv, mode, T, el) {
+  function startFire(cv, mode, T, el) {   // cv 可能被換成新畫布 (WebGL 失敗改用 2d)
     if (fireLive >= 3) { cv.remove(); return; }
     fireLive++;
     let freed = false;
-    const done = () => { if (freed) return; freed = true; fireLive--; try { const gl = cv._gl; if (gl) { const x = gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } } catch (e) {} cv._gl = null; cv.width = cv.height = 1; };
+    const done = () => {
+      if (freed) return; freed = true; fireLive--;
+      cv.style.display = "none";   // 先藏起來: 畫布 CSS 是撐滿整個特效框,縮成 1x1 / 釋放 context 的那一瞬間會被拉成一整塊白底
+      try { const gl = cv._gl; if (gl) { const x = gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } } catch (e) {}
+      cv._gl = null; cv.width = cv.height = 1; cv.remove();
+    };
     let ok = false;
     try { ok = startFireGL(cv, mode, T, el, done); } catch (e) { ok = false; }
-    if (!ok) { try { cv._gl = null; startFire2d(cv, mode, T, el, done); } catch (e) {} }
+    if (!ok) {
+      try {
+        if (cv._gl) { const n = cv.cloneNode(false); cv.replaceWith(n); cv = n; }   // 已經拿過 WebGL context 的畫布不能再開 2d: 換一張新的
+        cv._gl = null; startFire2d(cv, mode, T, el, done);
+      } catch (e) { cv.style.display = "none"; }
+    }
     setTimeout(done, T * 1000 + 600);   // 保險: 不管迴圈有沒有正常結束都會釋放
   }
 
@@ -614,7 +625,7 @@ void main(){
     }
     document.body.append(el); live.add(el);
     el.querySelectorAll("canvas[data-fire]").forEach(c => startFire(c, c.dataset.fire, T, el));
-    setTimeout(() => { el.querySelectorAll("canvas").forEach(c => { c.width = c.height = 1; }); el.remove(); live.delete(el); }, T * 1000 + 300);
+    setTimeout(() => { el.querySelectorAll("canvas").forEach(c => { c.style.display = "none"; c.width = c.height = 1; }); el.remove(); live.delete(el); }, T * 1000 + 300);
     return el;
   }
   function clearAll() { live.forEach(e => e.remove()); live.clear(); }
