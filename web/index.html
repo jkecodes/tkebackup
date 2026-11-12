@@ -67,7 +67,9 @@ html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px
 .pl .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{display:inline-block;padding:0 8px;border-radius:99px;font-size:11px;font-weight:700;margin-left:5px;background:#394150;color:#fff;vertical-align:1px}
 .role.叛徒{background:linear-gradient(#b455e0,#6a2a94)}.role.好人{background:linear-gradient(#4f9be8,#2a5f9c)}.tag.hunt{background:#7a1f2a;color:#ffd9dd;border:1px solid #e0504a;font-weight:700}
-.role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}.role.紅主公,.role.紅忠臣{background:linear-gradient(#e0504a,#9c2824)}.role.藍主公,.role.藍忠臣{background:linear-gradient(#4f9be8,#2a5f9c)}.role.紅主公,.role.藍主公{box-shadow:inset 0 0 0 1px #ffd24a,0 1px 2px rgba(0,0,0,.4)}
+.role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}html body .pl.tm-b{background:linear-gradient(160deg,hsl(215 68% 36%/.97),hsl(220 70% 21%/.97))!important}html body .pl.tm-r{background:linear-gradient(160deg,rgba(120,36,36,.97),rgba(72,18,22,.97))!important}
+html body .pl.tm-lord:not(.waiting):not(.sel){outline:3px double #ffd24a;outline-offset:2px}
+.role.紅主公,.role.紅忠臣{background:linear-gradient(#e0504a,#9c2824)}.role.藍主公,.role.藍忠臣{background:linear-gradient(hsl(210 78% 60%),hsl(212 60% 38%))}.role.紅主公,.role.藍主公{box-shadow:inset 0 0 0 1px #ffd24a,0 1px 2px rgba(0,0,0,.4)}
 .hp{letter-spacing:1px;color:var(--red);font-size:14px;text-shadow:0 0 6px rgba(239,91,85,.4)}
 .hp .e{color:#43343a;text-shadow:none}
 .meta{color:var(--dim);font-size:12px}
@@ -971,7 +973,7 @@ function showCharInfo(p) {   // 點武將頭像: 顯示技能全文與目前狀�
   }
   const st = [`體力 ${p.hp}/${p.maxhp}`, `手牌 ${p.hand_n}`];
   if (p.role !== "?" && p.role !== "無") st.push(p.role);
-  if (p.chained) st.push("橫置"); if (p.flipped) st.push("翻面"); if (!p.alive) st.push("已陣亡");
+  if (p.chained) st.push("橫置"); if (p.disguise && p.disguise_kind === "disguise" ? p.dg_flip : p.flipped) st.push("翻面"); if (!p.alive) st.push("已陣亡");
   const body = h("div", {class: "ci char"}, c.img ? h("img", {src: gi(c.img)}) : "",
     h("div", {}, h("h3", {text: `${c.faction} ${c.name}`}), h("div", {class: "meta", text: `體力上限 ${c.maxhp} · 目前: ${st.join(" / ")}`}),
       c.skills.map((s, i) => h("p", {class: "sk", text: /^\d+[.、]/.test(s) || c.skills.length < 2 ? s : (i + 1) + ". " + s})),
@@ -1175,7 +1177,7 @@ function renderTable0(snap) {
     const exn = Math.max(0, zone.childNodes.length - 3);   // 3 張以內放得下,超過的每張把框多撐 1 格寬
     if (p.judge.length) { const jz = h("div", {class: "zone jz"}); p.judge.forEach(j => { const je = eqEl(j, "判", true, mvPick && mvPick.has(String(j.id)) ? () => { const tp = S.tgtPick; tp.cid = tp.cid === String(j.id) ? null : String(j.id); renderPrompt(S.snap); renderTable(S.snap); } : (zPick && zPick.has(String(j.id)) ? zsub(zPick.get(String(j.id))) : null)); if (mvPick && S.tgtPick.cid === String(j.id)) je.style.outline = "2px solid var(--gold)"; jz.append(je); }); tags.append(jz); }   // 延時錦囊另外一排
     if (p.chained) ph.classList.add("hz");   // 鐵索橫置: 武將牌真的橫過來 (轉 90 度)
-    if (p.flipped) tags.append(h("span", {class: "tag flip", text: "翻面"}));
+    if (p.disguise && p.disguise_kind === "disguise" ? p.dg_flip : p.flipped) tags.append(h("span", {class: "tag flip", text: "翻面"}));   // 偽裝中看最上面那張武將牌有沒有翻面 (本尊翻面但偽裝的是正面就不標翻面)
     if (p.stash_n) tags.append(h("span", {class: "tag", text: "未×" + p.stash_n}));
     (p.badges || []).forEach(b => tags.append(h("span", {class: "tag bd bd-" + b.k, text: b.t})));
     if (myTarget === p.idx) tags.append(h("span", {class: "tag hunt", title: "你的暗殺目標: 親手殺死他就獲勝", text: "🎯 你的目標"}));
@@ -1189,8 +1191,9 @@ function renderTable0(snap) {
     if (p.hand && p.hand.length && snap.viewer == null) inf.append(h("div", {class: "mini"}, p.hand.map(miniEl)));
     const el = h("div", {"data-idx": p.idx, class: "pl" + (snap.cur === p.idx && !snap.over ? " cur" : "") + (winners.has(p.idx) ? " win" : "") + (p.is_viewer ? " me" : "") + (snap.waiting === p.idx && !snap.over ? " waiting" : "") + (p.alive ? "" : " dead") + (S.sel === p.idx ? " sel" : "") + (targetIdx.has(p.idx) ? " target" : "") + (pickMode && S.tgtPick.chosen && S.tgtPick.chosen.includes(p.idx) ? " tp1" : "") + (pickMode && !targetIdx.has(p.idx) && !(S.tgtPick.mv && !S.tgtPick.cid) ? " dimmed" : ""),
                          style: rp ? {left: rp[0] + "px", top: rp[1] + "px", order: k} : {left: `clamp(var(--hw),${x}%,calc(100% - var(--hw)))`, top: `clamp(var(--hh),${y}%,calc(100% - var(--hh)))`, order: k}, onclick: () => { if (pickMode) { tpClick(S.tgtPick, p.idx, pend); return; } S.sel = S.sel === p.idx ? null : p.idx; $("#thf").value = S.sel == null ? "" : String(S.sel); renderThoughts(); renderTable(S.snap); }}, ph, inf);
+    if (p.role && p.role.length > 1 && (p.role[0] === "紅" || p.role[0] === "藍")) el.classList.add(p.role[0] === "紅" ? "tm-r" : "tm-b", ...(p.role.endsWith("主公") ? ["tm-lord"] : []));   // 雙國戰: 紅 / 藍兩邊的底色,主公另外有金色雙線框
     if (snap.waiting === p.idx && !snap.over) el.append(h("i", {class: "wfr"}));   // 等待操作的虛線框: 用獨立圖層畫 (手機瀏覽器的虛線 outline 會漏掉其中一邊)
-    { const bx = ((snap.avstyles || {})[p.idx] || {}).bx; if (bx && window.SGS_BOX) SGS_BOX.apply(el, bx); }   // 玩家框
+    { const bx = ((snap.avstyles || {})[p.idx] || {}).bx; if (bx && window.SGS_BOX && !el.classList.contains("tm-r") && !el.classList.contains("tm-b")) SGS_BOX.apply(el, bx); }   // 雙國戰: 不套個人的玩家框,不然會蓋掉紅 / 藍底色   // 玩家框
     if (exn) el.style.setProperty("--exn", exn);
     const t = S.lastTh[p.idx];
     const age = t && t._ts ? (Date.now() - t._ts) / 1000 : 99;
