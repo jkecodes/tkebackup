@@ -1862,8 +1862,8 @@ class 關興(Char):
     single_to_all = True
     immune_turn = -1
 
-    def blocks_target(self, g, p, card):   # 別人的單一對象錦囊 (順 / 過 / 決 / 火攻 / 降雷 / 樂 / 兵…) 不能指定關興;強 / 弱 / 突 是 ⚡ 或全體牌,不算
-        return getattr(card, "kind", "") == "trick" and card.name not in ("強", "弱", "突", "南", "萬", "飢", "桃園", "五")   # 全體牌 (南蠻 / 萬箭 / 飢餓 / 桃園 / 五穀) 不是單一對象,對關興照常生效
+    def blocks_target(self, g, p, card):   # 別人的單一對象錦囊 (順 / 過 / 決 / 火攻 / 降雷 / 強 / 弱 / 樂 / 兵…) 不能指定關興 (另一個關興對他用也一樣: 對他無效,對其他角色照常有效)
+        return getattr(card, "kind", "") == "trick" and card.name not in ("突", "南", "萬", "飢", "桃園", "五")   # 全體牌 (突襲 / 南蠻 / 萬箭 / 飢餓 / 桃園 / 五穀) 不是單一對象,對關興照常生效
 
     def offturn_options(self, g, p):
         if self.immune_turn == g.turn_id:
