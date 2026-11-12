@@ -2192,13 +2192,12 @@ class Game:
             for p in self.players:
                 p._char.on_game_start(self, p)
             n, ls = len(self.players), self.first.idx
-            if self.hidden_lord:   # 主公不公開: 第一個出牌的人在自己第一個回合「開始前」就決定方向 (他可能出南蠻 / 萬箭這種全體結算的牌,結算順序要看方向)
-                fp = self.first
-                ask = len(self.alive_players()) > 2 and not self.scn
-                i = fp.agent.choose_option(self, fp, "輪次方向", ["往左 (座位號遞增)", "往右 (座位號遞減)"]) if ask else 0
-                self.dir = 1 if i == 0 else -1
-                if ask:
-                    self.log(f"  {fp.name} 是第一個出牌的玩家,決定輪次方向: {'往左 (座位號遞增)' if self.dir == 1 else '往右 (座位號遞減)'}")
+            fp = self.first   # 第一個出牌的人 (一般是主公,主公不公開時是隨機一位) 在自己第一個回合「開始前」就決定輪次方向: 他可能出南蠻 / 萬箭這種全體結算的牌,結算順序要看方向
+            ask = len(self.alive_players()) > 2 and not self.scn   # 只剩兩個人: 往哪邊輪都一樣,不用問
+            i = fp.agent.choose_option(self, fp, "輪次方向", ["往左 (座位號遞增)", "往右 (座位號遞減)"]) if ask else 0
+            self.dir = 1 if i == 0 else -1
+            if ask:
+                self.log(f"  {fp.name} 決定輪次方向: {'往左 (座位號遞增)' if self.dir == 1 else '往右 (座位號遞減)'}")
             for self.round in (range(1, self.max_rounds + 1) if self.max_rounds else itertools.count(1)):   # 每輪從第一個出牌的人 (一般是主公) 開始 (預設上限 10000 輪)
                 k = 0
                 while k < n:
@@ -2206,13 +2205,6 @@ class Game:
                     if p.alive:
                         self.take_turn(p)
                         assert self.count_cards() == self.total_cards, "牌數不守恆"
-                    if self.round == 1 and k == 0 and not self.hidden_lord:   # 第一個出牌的人 (一般是主公) 第一回合結束後,決定往左還是往右輪 (主公不公開: 已在開局決定)
-                        fp = self.first
-                        ask = fp.alive and len(self.alive_players()) > 2 and not self.scn   # 第一回合結束只剩兩個人 (或更少): 往哪邊輪都一樣,不用問
-                        i = fp.agent.choose_option(self, fp, "輪次方向", ["往左 (座位號遞增)", "往右 (座位號遞減)"]) if ask else 0
-                        self.dir = 1 if i == 0 else -1
-                        if ask:
-                            self.log(f"  {fp.name} 決定輪次方向: {'往左 (座位號遞增)' if self.dir == 1 else '往右 (座位號遞減)'}")
                     k += 1
             self.winner = "平手(超過回合上限)"
         except GameOver:
