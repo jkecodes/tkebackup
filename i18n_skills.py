@@ -161,7 +161,7 @@ T = {
         ("Each turn of yours, others must discard 1 hand card or lose 1 HP", "あなたのターンごとに他人は手札1枚を捨てるか体力-1")],
 "呂布": [("May play unlimited Slashes per turn", "1ターンに殺を何枚でも出せる"),
         ("No hand limit", "手札上限なし"),
-        ("Once per game, void everything for a turn", "1ゲームに1回、1ターン全てを無効にできる")],
+        ("Once per game, void everything on the field for a turn (cards played afterwards still work)", "1ゲームに1回、1ターン場の全てを無効にできる(その後に出したカードは有効)")],
 "孔融": [("Once per turn (yours or others'): recast x hand cards (black: draw 1; red: restore 1 HP)", "自分または他人のターンに1回、手札x枚を再鋳造(黒: 1枚引く、赤: 体力1回復)"),
         ("Return the Favor can only heal you", "投桃報李は自分しか回復できない")],
 "左慈": [("Each turn you may transform into a different character (used ones set aside face-down) until flipped", "毎ターン別の武将に化身できる(使用済みは伏せて脇に置く)。裏返るまで"),

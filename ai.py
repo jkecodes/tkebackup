@@ -239,12 +239,68 @@ class HeuristicAgent(RandomAgent):
                 a += -1.5 if other.flipped else 0.7
         return a
 
+    # --- 雙國戰 (忠臣不公開): 只知道自己這一邊和兩位主公,其他人要看行為推理 (sus 越高越像對面的人)
+    def team_observe(self, g, me, kind, src, tgt):
+        if src is None or src is tgt or src is me or (hasattr(self, "adv") and not self.adv("infer")):
+            return
+        s = self.sus
+        s.setdefault(src.idx, 0.0)
+        s.setdefault(tgt.idx, 0.0)
+        known = lambda q: None if q.idx not in g.revealed and q is not me else ("a" if q.side == me.side else "f")
+        if kind in ("attack", "hurt"):
+            w = 1.0 if kind == "attack" else 0.4
+            k = known(tgt)
+            if tgt is me:
+                self.grudge[src.idx] = self.grudge.get(src.idx, 0) + 1
+                s[src.idx] += 1.5 * w
+            elif k == "a":
+                s[src.idx] += 3.0 * w
+            elif k == "f":
+                s[src.idx] -= 3.0 * w
+            elif s[tgt.idx] >= 1.5:
+                s[src.idx] -= 1.0 * w
+            elif s[tgt.idx] <= -1.5:
+                s[src.idx] += 1.0 * w
+        elif kind == "help":
+            k = known(tgt)
+            if k == "a":
+                s[src.idx] -= 2.0
+            elif k == "f":
+                s[src.idx] += 2.0
+            elif s[tgt.idx] >= 1.5:
+                s[src.idx] += 0.7
+            elif s[tgt.idx] <= -1.5:
+                s[src.idx] -= 0.7
+        elif kind == "kill":
+            s[src.idx] += 3.0 if tgt.side == me.side else -2.0   # 陣亡的人身分會翻開
+        s[src.idx] = max(-6.0, min(6.0, s[src.idx]))
+
+    def team_att_hidden(self, g, me, other):
+        if other is me or other.idx in g.revealed:
+            return 5 if other.side == me.side else (-4.5 if other.is_lord else -3)
+        unk = [q for q in g.alive_players() if q is not me and q.idx not in g.revealed]   # 還沒公開的活人 (沒有主公)
+        dead_mates = sum(1 for q in g.players if not q.alive and q.side == me.side and not q.is_lord and q is not me)
+        need = len(g.players) // 2 - (1 if me.is_lord else 2) - dead_mates   # 這些人裡還有幾個是我的隊友 (人數固定,可以直接算)
+        if need <= 0:
+            return -3
+        if need >= len(unk):
+            return 5
+        s = self.sus.get(other.idx, 0.0)
+        gr = -0.7 * min(2, self.grudge.get(other.idx, 0))
+        if s >= 1.5:
+            return -1.5 - 0.4 * min(s, 4) + gr
+        if s <= -1.5:
+            return min(2.2, 1.0 - 0.3 * s)
+        return -0.3 - 0.8 * s + gr
+
     def _att(self, g, me, other):
         if other is me:
             return 5
         if me.role == "無":   # 2~3 人無身分: 所有人都是敵人
             return -3
         if getattr(g, "team_mode", False):   # 雙國戰: 身分全公開,同隊是隊友,另一隊都是敵人 (對方主公是首要目標)
+            if getattr(g, "team_hidden", False):
+                return self.team_att_hidden(g, me, other)
             if other.side == me.side:
                 return 5
             return -4.5 if other.is_lord else -3

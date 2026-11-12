@@ -1653,7 +1653,7 @@ function ctxNodes(nodes) {   // 戰報: 玩家標籤 / 箭頭 / 牌圖把一行�
 }
 const cardNodesT = s => ctxNodes(cardNodes(s));
 function pchip(i, par) {
-  const nm = (par.includes("/") ? par.split("/").pop() : par).replace(/^[主忠反內][公臣賊奸]$/, "");
+  const nm = (par.includes("/") ? par.split("/").pop() : par).replace(/^(?:[紅藍]?[主忠反內][公臣賊奸]|叛徒|好人)$/, "");
   return h("span", {class: "pc", "data-zh": "P" + i + "(" + par + ")", "data-chip": "1", text: "P" + i + (nm && nm !== "?" ? " " + nm : "")});
 }
 function arrow(mid, harm, noTarget) {   // 圖像化箭頭: ──[牌]──▶ (沒有指定對象的牌: 只有 ──[牌],不畫箭頭)
@@ -1981,8 +1981,8 @@ const diffLabels = () => { const L = (window.SGS_I18N && SGS_I18N.lang) || "zh";
 function openSetup() {
   const M = $("#modal"); M.textContent = ""; S.modalOpen = "setup";
   const roster = S.roster;
-  const CAS = ["hunt", "traitor", "team"];   // 休閒玩法 (放在「遊戲模式」那排): 暗殺目標 / 抓叛徒 (4 人以上) / 雙國戰 (4 6 8 10 人)
-  const casOk = (m, n) => m === "team" ? [4, 6, 8, 10].includes(n) : n >= 4;
+  const CAS = ["hunt", "traitor", "team", "teamh"];   // 休閒玩法 (放在「遊戲模式」那排): 暗殺目標 / 抓叛徒 (4 人以上) / 雙國戰 (4 6 8 10 人)
+  const casOk = (m, n) => (m === "team" || m === "teamh") ? [4, 6, 8, 10].includes(n) : n >= 4;
   const st = {n: 4, human: "spectate", variant: 0, lord: "random", mode: "normal", diff: 3, rm: "normal", hp: 4, ranked: "casual"};
   const cnt = a => { const c = {}; a.forEach(x => c[x] = (c[x] || 0) + 1); return Object.entries(c).map(([k, v]) => k + v).join(" "); };
   const speed = h("input", {type: "range", min: 0.05, max: 1.5, step: 0.05, value: $("#speed").value});
@@ -2054,7 +2054,7 @@ function openSetup() {
   const drawMode = () => {
     modeBox.textContent = "";
     const opts = [["normal", "正常模式"], ["shuffle", "🔀 百變模式"]];
-    [["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"], ["team", "⚔ 雙國戰"]].forEach(o => { if (casOk(o[0], st.n)) opts.push(o); });   // 休閒玩法
+    [["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"], ["team", "⚔ 雙國戰 (身分公開)"], ["teamh", "⚔ 雙國戰 (忠臣不公開)"]].forEach(o => { if (casOk(o[0], st.n)) opts.push(o); });   // 休閒玩法
     const cur = CAS.includes(st.rm) ? st.rm : st.mode;
     modeBox.append(seg(opts, cur, v => {
       if (CAS.includes(v)) { st.rm = v; st.mode = "normal"; }
@@ -2110,7 +2110,7 @@ function openSetup() {
       sect("主公座位", "主公從哪個座位開始;身分會在開局時才揭曉", lordBox),
       sect("電腦難度", "上面一排是一次調整全部電腦;每個座位也可以在下方「座位與武將」各自調整。段位模式打贏電腦加的積分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 / 極強 +40;輸了扣的分數和同難度贏的加分一樣 (勝率超過約 50% 才會升)。同場有其他真人時,輸贏分數會依對手平均積分與你的差距調整 (最多 ±50%)。段位模式的電腦難度不能自己調,跟著入座玩家的平均段位走: 青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強。", diffSeg = seg(diffLabels().map((t, k) => [k + 1, t]), st.diff, v => { st.diff = v; seatBox.querySelectorAll("select[data-dseat]").forEach(x => { x.value = String(v); keepD[x.dataset.dseat] = String(v); }); })),
       sect("基礎體力上限", "所有武將的體力上限一起增減 (預設 4);原本就比較高或低的武將會保留差距。例如設 6,原本 4 血的武將變 6 血,原本 3 血的變 5 血", hpBox),
-      sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變);暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (每個人最多被一個人當目標;只要有人陣亡,全部人重新隨機分配目標);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒或叛徒撐過第 5 輪還活著就是叛徒獲勝 (這兩個休閒模式限 4 人以上);雙國戰: 4 / 6 / 8 / 10 人分成紅藍兩邊,各有自己的主公和忠臣,身分全公開,先殺死對方主公的一邊獲勝;主公誤殺自己的忠臣會棄置所有手牌與裝備", modeBox),
+      sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變);暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (每個人最多被一個人當目標;只要有人陣亡,全部人重新隨機分配目標);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒或叛徒撐過第 5 輪還活著就是叛徒獲勝 (這兩個休閒模式限 4 人以上);雙國戰: 4 / 6 / 8 / 10 人分成紅藍兩邊,各有自己的主公和忠臣,先殺死對方主公的一邊獲勝;主公誤殺自己的忠臣會棄置所有手牌與裝備。「身分公開」: 每個人屬於哪一邊都公開;「忠臣不公開」: 只有兩位主公公開,每個人只知道自己是哪一邊,要靠行為判斷誰是隊友 (陣亡時才翻開身分)", modeBox),
       sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限", rmBox),
       sect("進階", "", h("div", {class: "adv"},
         h("label", {class: "fld", title: "打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)"}, h("span", {text: "旁觀者可看全部身分 / 手牌"}), specAll),

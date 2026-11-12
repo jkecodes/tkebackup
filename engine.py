@@ -154,9 +154,10 @@ class Player:
         return self.hand + self.equip_cards()
 
     def _worn(self, slots):
-        if self.g is not None and self.g.equip_off():
+        g = self.g
+        if g is not None and g.equip_off():
             return []
-        return [self.equip[s].name for s in slots if self.equip[s]]
+        return [self.equip[s].name for s in slots if self.equip[s] and not (g is not None and g.eq_void(self.equip[s]))]
 
     def weapon_names(self):
         return self._worn(("weapon", "weapon2"))
@@ -211,13 +212,14 @@ class Game:
         # team 雙國戰 (休閒): 4 / 6 / 8 / 10 人分兩邊 (紅方 / 藍方),各有自己的主公和忠臣,身分全公開,先殺死對方主公的一邊獲勝
         if role_mode in ("hunt", "traitor") and n >= 4:
             pass
-        elif role_mode == "team" and n in (4, 6, 8, 10):
+        elif role_mode in ("team", "teamh") and n in (4, 6, 8, 10):   # teamh: 忠臣不公開 (只有兩位主公公開,每個人只知道自己是哪一邊)
             pass
         else:
             role_mode = role_mode if role_mode in ("normal", "none", "open", "hidden") and n >= 4 else ("none" if n < 4 else "normal")
         self.role_mode = role_mode
-        self.team_mode = role_mode == "team"
-        roles = ["無"] * n if role_mode in ("none", "hunt", "team") else (["叛徒"] + ["好人"] * (n - 1)) if role_mode == "traitor" else ROLES[n][role_variant % len(ROLES[n])][:]
+        self.team_mode = role_mode in ("team", "teamh")
+        self.team_hidden = role_mode == "teamh"
+        roles = ["無"] * n if role_mode in ("none", "hunt", "team", "teamh") else (["叛徒"] + ["好人"] * (n - 1)) if role_mode == "traitor" else ROLES[n][role_variant % len(ROLES[n])][:]
         self.rng.shuffle(roles)
         self.noroles = role_mode in ("none", "hunt")   # 沒有主公加成、沒有身分勝負
         self.hunt = role_mode == "hunt"
@@ -249,7 +251,9 @@ class Game:
             if self.hp_offset:
                 q._maxhp = max(1, q._maxhp + self.hp_offset)
                 q.hp = q._maxhp
-        self.void = False               # 呂布: 本回合全場效果無效
+        self.void = False               # 呂布: 本回合場上現有的效果無效 (之後出的牌有效)
+        self.void_eq: set = set()       # 呂布發動當下已經裝備在場上的牌 (id)
+        self.void_dm: dict = {}         # 呂布發動當下每個人身上的強 / 弱層數 {idx: (強, 弱)}
         self.ordinary = False           # 正在進行一般抽牌 (張紘: 其他抽牌需打出閃)
         self.sha_total = 0              # 全場累計使用的殺 (虞翻)
         self.wei_chars: dict = {}       # 偽裝用的武將實例 (一次的技能一場只能用一次)
@@ -278,6 +282,8 @@ class Game:
         self.revealed: dict[int, str] = {} if (self.noroles or self.hidden_lord) else {ls: "主公"}
         if role_mode in ("open", "team"):
             self.revealed = {q.idx: q.role for q in self.players}   # 全部身分公開
+        elif role_mode == "teamh":
+            self.revealed = {i: self.players[i].role for i in self.lords.values()}   # 只有兩位主公公開
         self.cur: Player = self.lord
         self.sha_used = 0
         self.jiu = False
@@ -405,9 +411,9 @@ class Game:
         ia, ib = alive.index(a), alive.index(b)
         d = abs(ia - ib)
         d = min(d, len(alive) - d)
-        if a.equip["h-"] and not self.equip_off():
+        if a.equip["h-"] and not self.eq_void(a.equip["h-"]):
             d -= 1
-        if b.equip["h+"] and not self.equip_off():
+        if b.equip["h+"] and not self.eq_void(b.equip["h+"]):
             d += 1
         d += a.char.dist_mod(self, a, b)
         d += b.char.dist_in(self, b, a)
@@ -474,9 +480,10 @@ class Game:
 
     def flip_judge(self, who=None):
         c = self.pop_deck()
-        if c is None:  # 牌堆和棄牌堆都空了: 沒有判定牌,視為黑色空白牌 (不進棄牌堆)
-            self.log("  牌堆已空,判定沒有牌 (視為黑色)")
-            return Card(-1, "空白", "黑", "basic")
+        if c is None:  # 牌堆和棄牌堆都空了: 沒有判定牌,視為空白牌,黑 / 紅各 50% (不進棄牌堆)
+            col = self.rng.choice(("黑", "紅"))
+            self.log(f"  牌堆已空,判定沒有牌 (隨機視為{col}色)")
+            return Card(-1, "空白", col, "basic")
         if who is not None and c is not None:
             for q in self.alive_players():
                 if q.char.judge_pick and q.hp == 1:  # 張苞: 看牌堆頂 3 張,挑一張當判定牌
@@ -555,11 +562,9 @@ class Game:
         if src and src is not tgt and _mods:
             n = src.char.dmg_dealt_mod(self, src, tgt, n)
         n0 = n   # 還沒乘強化 / 弱化的傷害 (傷害結算前的 ⚡ 連鎖出了強 / 弱就從這裡重算)
-        if not self.void and _mods:   # 反轉移出去的傷害不再重複乘 (否則每轉一手就 x2)
+        if _mods:   # 反轉移出去的傷害不再重複乘 (否則每轉一手就 x2)
             if src:
-                n *= 2 ** src.dmg_x2   # 強: 該玩家本回合「造成」的傷害 x2
-            if src:
-                n //= 2 ** src.dmg_half   # 弱: 該玩家本回合「造成」的傷害 ÷2 (無條件捨去)
+                n = self.dmg_mul(src, n)   # 強 x2 / 弱 ÷2 (無條件捨去): 該玩家本回合「造成」的傷害
             shield = 0 if qg else tgt.armor_names().count("緩衝盾")
             if n - shield > 0:   # 扣掉緩衝盾後是 0 點傷害就不用問 ⚡ 連鎖
                 n = self._damage_window(src, tgt, n0, n, raw, shield)
@@ -665,7 +670,7 @@ class Game:
                 self.execute(q, c, t)
                 self.after_play(q, c)
                 if src is not None:
-                    n = n0 * 2 ** src.dmg_x2 // 2 ** src.dmg_half
+                    n = self.dmg_mul(src, n0)
                 acted = True
                 break
             if not acted:
@@ -686,8 +691,8 @@ class Game:
             n += 1
         if src is not None and t is not None and src is not t:
             n = src.char.dmg_dealt_mod(self, src, t, n)
-        if src is not None and not self.void:
-            n = n * 2 ** src.dmg_x2 // 2 ** src.dmg_half
+        if src is not None:
+            n = self.dmg_mul(src, n)
         if tgt is not None:
             n -= tgt.armor_names().count("緩衝盾")
             n = tgt.char.cap_damage(self, tgt, n)
@@ -700,7 +705,7 @@ class Game:
             if c.name in ("反", "調", "占"):
                 return None if c.name in banned else c.name
             return next((k for k in ("調", "占") if k not in banned and tgt.char.as_card(self, tgt, c, k)), None)
-        if self.void or self.trick_locked(tgt):   # 呂布無效 / 鐘繇沒手牌: 反 / 調 / 占 也是錦囊,不能用
+        if self.trick_locked(tgt):   # 鐘繇沒手牌: 反 / 調 / 占 也是錦囊,不能用
             return [], vname
         return [c for c in tgt.hand if vname(c)], vname
 
@@ -779,8 +784,20 @@ class Game:
         return any(q.char.peach_lock for q in self.alive_players() if q is not p)
 
     def equip_off(self):
-        """呂布無效 / 太史慈: 全場裝備 (武器、防具、坐騎) 不產生效果。"""
-        return self.void or any(q.char.equip_void for q in self.alive_players())
+        """太史慈: 全場裝備 (武器、防具、坐騎) 不產生效果。"""
+        return any(q.char.equip_void for q in self.alive_players())
+
+    def eq_void(self, c):
+        """這張裝備現在有沒有失效: 太史慈在場全部失效;呂布「無效」只無效發動當下已經在場上的那幾張,之後才裝備上去的有效。"""
+        return self.equip_off() or (self.void and c is not None and c.id in self.void_eq)
+
+    def dmg_mul(self, src, n):
+        """強 / 弱: 來源這回合「造成」的傷害倍率。呂布「無效」之後,只有發動當下已經存在的層數失效,之後才用的強 / 弱有效。"""
+        x2, hf = src.dmg_x2, src.dmg_half
+        if self.void:
+            bx, bh = self.void_dm.get(src.idx, (0, 0))
+            x2, hf = x2 - bx, hf - bh
+        return n * 2 ** x2 // 2 ** hf
 
     def banned(self):
         """鍾繇: 全場禁用的牌名 (翻面也有效;呂布無效時不禁)。"""
@@ -971,10 +988,34 @@ class Game:
                         # 擋下有害錦囊 = 幫助 tgt;擋下有益錦囊 = 針對 tgt (再翻回來則相反)
                         self.emit("help" if negated == harmful else "attack", q, tgt)
                     self.log(f"  -> 結算後錦囊{'無效' if negated else '生效'}")
+                    if self.void_window("無懈"):   # 呂布 (含複製到呂布技能的人) 可以連鎖發動「無效全場」: 剛出的這張無懈在場上,被無效 → 錦囊結果翻回來
+                        negated = not negated
+                        self.log(f"  呂布「無效」: 這張無懈沒有效果 -> 結算後錦囊{'無效' if negated else '生效'}")
                     played = True
                     break
             if not played:
                 return negated
+
+    def void_window(self, what):
+        """有人出了牌 (例如無懈): 技能「無效全場」還沒用過的呂布 (複製到的人也算) 可以連鎖發動,把剛出的那張牌無效。回傳 True = 發動了。"""
+        if self.void:
+            return False
+        for q in self.order_from(self.cur):
+            if not q.alive:
+                continue
+            opts = [(c, t) for c, t in q.char.skill_options(self, q) if getattr(c, "name", "") == "呂布-無效全場"]
+            if not opts:
+                continue
+            i = q.agent.choose_offturn(self, q, opts, self.cur, f"使用了{what}")
+            if i is None:
+                continue
+            c, t = opts[i]
+            self.new_chain()
+            self.link(f"{q.name} 對 {what} 發動 {c.name}")
+            self.execute(q, c, t)
+            if self.void:
+                return True
+        return False
 
     def need_response(self, p, name, ctx=None):
         """要求 p 打出一張 name。回傳 True 代表打出。"""
@@ -1621,10 +1662,6 @@ class Game:
             else:
                 self.use_sha(p, tgt, card)
             return
-        if self.void and card.kind == "trick" and n not in DELAYED:
-            self._spend(p, real)
-            self.log(f"  呂布「無效」: {card} 沒有效果")
-            return
         if card.kind in ("weapon", "armor", "horse"):
             self.equip_card(p, card)
             return
@@ -1848,7 +1885,7 @@ class Game:
                     self.draw(p, N)
                     self.log(f"  抽 {N} 張" + ("" if p.char.gu_no_loss else ",-1 點體力"))
                     if not p.char.gu_no_loss:
-                        self.damage(None, p, 1)
+                        self.damage(p, p, 1, _bonus=False)   # 來源是自己: 自己的強 / 弱會算進去 (弱化後不扣血);不吃流星錘 +1
         elif n == "鐵":
             mode = self.__dict__.pop("_tie_mode", None)
             if mode is None:

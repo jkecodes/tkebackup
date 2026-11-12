@@ -88,6 +88,8 @@ class ProAgent(LeveledAgent):
         self._tr_open = False # 抓叛徒模式: 叛徒是否已經不裝了
 
     def observe(self, g, me, kind, src, tgt):
+        if getattr(g, "team_hidden", False):
+            return self.team_observe(g, me, kind, src, tgt)
         if getattr(g, "hunt", False) or getattr(g, "traitor", False):
             return self.mode_observe(g, me, kind, src, tgt)
         if self.adv("infer"):   # 2 級以下不從公開行為推理身分 (態度只剩「主公公開 / 已翻開的身分」這些明擺著的資訊)
@@ -448,8 +450,6 @@ class ProAgent(LeveledAgent):
                 cands.append((bucket, pri, i, n))
         if self.adv("combo"):
             cands = self.tactics(g, p, options, cands, foes)
-        elif g.void and p is g.cur:   # 規則限制 (呂布 無效全場): 只能出基本牌,這是基本常識,所有難度都遵守
-            cands = [c for c in cands if isinstance(options[c[2]][0], SkillAct) or getattr(real(options[c[2]][0]), "kind", "") == "basic"]
         r = self.char_act(g, p, options)
         if r is not None:
             cands.append(r)
@@ -660,8 +660,6 @@ class ProAgent(LeveledAgent):
                     if q.armor_names() and k >= q.hp + round(len(q.hand) * 0.3) and k >= 2:
                         out.append((-1.5, 200, i, "呂布-無效全場"))
                         break
-        if g.void and p is g.cur:
-            out = [c for c in out if isinstance(card_of(c), SkillAct) or getattr(real(card_of(c)), "kind", "") == "basic"]
         # --- 鄧艾 / 曹沖在場或我是孟獲: 血少就先不出 (會扣血的) 錦囊
         others = [q._char.name for q in g.others(p) if q.alive]
         if ("鄧艾" in others or "曹沖" in others or me == "孟獲") and cur != "諸葛亮":

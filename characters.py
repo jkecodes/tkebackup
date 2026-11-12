@@ -1003,7 +1003,9 @@ class 呂布(Char):
     def _run(self, g, p, t):
         self.used = True
         g.void = True
-        g.log(f"  {p.name}[呂布] 遊戲中一次: 本回合全場效果無效 (武將技能、強/弱/反、錦囊、武器、防具、坐騎)")
+        g.void_eq = {c.id for q in g.players for c in q.equip_cards()}   # 只有發動當下場上有的才無效
+        g.void_dm = {q.idx: (q.dmg_x2, q.dmg_half) for q in g.players}
+        g.log(f"  {p.name}[呂布] 遊戲中一次: 本回合場上現有的效果無效 (武將技能、強/弱、武器、防具、坐騎);之後出的牌有效")
 
     def ai_choose(self, g, p, options):
         foes = sum(1 for q in g.others(p) if q.hp >= 3 and len(q.hand) >= 4)
