@@ -2026,6 +2026,9 @@ function openSetup() {
     if (n < 4) rmBox.append(h("span", {class: "meta", text: "2~3 人固定為無身分模式: 沒有身分,各打各的,最後活著的人獲勝"}));
     else rmBox.append(seg([["normal", "正常"], ["none", "無身分 (各打各的)"], ["open", "身分全公開"], ["hidden", "主公不公開"], ["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"]], st.rm, v => { st.rm = v; rebuild(); }));
     const r = S.roles[n] || [];
+    const noRoles = n < 4 || st.rm === "none" || st.rm === "hunt" || st.rm === "traitor";   // 這些模式沒有主公 / 忠臣 / 反賊 / 內奸: 身分配置和主公座位整段收起來
+    const hideSec = () => [varBox, lordBox].forEach(b => { const sec = b.closest("section.sec"); if (sec) sec.style.display = noRoles ? "none" : ""; });
+    hideSec(); setTimeout(hideSec, 0);   // 第一次重畫時視窗還沒組好 (找不到外層區塊): 組好後再套一次
     varBox.textContent = "";
     if (n < 4 || st.rm === "none" || st.rm === "hunt" || st.rm === "traitor") return seatsOnly();
     varBox.append(seg(r.map((a, i) => [i, "配置 " + "AB"[i] + ": " + cnt(a)]), Math.min(st.variant, r.length - 1), v => { st.variant = v; }));
