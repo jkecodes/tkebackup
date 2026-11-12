@@ -196,10 +196,10 @@ class Game:
         self.mode, self.lord_bonus = mode, lord_bonus   # mode: normal 正常 / shuffle 百變 (第 2 輪起每次輪到自己都換新武將)
         n = len(agents)
         # role_mode: normal 正常 / none 無身分 (各打各的,最後活著的人贏;2~3 人固定這樣) / open 全部身分公開 / hidden 主公不公開 (不加體力上限)
-        # hunt 暗殺目標 (休閒): 沒有身分,每人暗中拿到一個要殺的目標,先親手殺死自己目標的人獲勝 (3 人以上)
+        # hunt 暗殺目標 (休閒): 沒有身分,每人暗中拿到一個要殺的目標,先親手殺死自己目標的人獲勝 (4 人以上)
         # traitor 抓叛徒 (休閒): 全部人裡有一個叛徒,其他人都是好人但不知道誰是叛徒; 死掉的人會公布是不是叛徒;
-        #   叛徒死了 → 好人全體獲勝; 只剩叛徒 → 叛徒獲勝 (3 人以上)
-        if role_mode in ("hunt", "traitor") and n >= 3:
+        #   叛徒死了 → 好人全體獲勝; 只剩叛徒 → 叛徒獲勝 (4 人以上)
+        if role_mode in ("hunt", "traitor") and n >= 4:
             pass
         else:
             role_mode = role_mode if role_mode in ("normal", "none", "open", "hidden") and n >= 4 else ("none" if n < 4 else "normal")

@@ -2022,9 +2022,11 @@ function openSetup() {
     lordBox.textContent = "";
     if (st.lord !== "random" && +st.lord >= n) st.lord = "random";
     lordBox.append(seg([["random", "🎲 隨機"], ...Array.from({length: n}, (_, i) => [String(i), "座位 " + i])], String(st.lord), v => { st.lord = v; }));
+    if (n < 4 && (st.rm === "hunt" || st.rm === "traitor")) st.rm = "normal";   // 暗殺目標 / 抓叛徒 限 4 人以上
+    drawMode();
     rmBox.textContent = "";
     if (n < 4) rmBox.append(h("span", {class: "meta", text: "2~3 人固定為無身分模式: 沒有身分,各打各的,最後活著的人獲勝"}));
-    else rmBox.append(seg([["normal", "正常"], ["none", "無身分 (各打各的)"], ["open", "身分全公開"], ["hidden", "主公不公開"], ["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"]], st.rm, v => { st.rm = v; rebuild(); }));
+    else rmBox.append(seg([["normal", "正常"], ["none", "無身分 (各打各的)"], ["open", "身分全公開"], ["hidden", "主公不公開"]], st.rm, v => { st.rm = v; rebuild(); }));
     const r = S.roles[n] || [];
     const noRoles = n < 4 || st.rm === "none" || st.rm === "hunt" || st.rm === "traitor";   // 這些模式沒有主公 / 忠臣 / 反賊 / 內奸: 身分配置和主公座位整段收起來
     const hideSec = () => [varBox, lordBox].forEach(b => { const sec = b.closest("section.sec"); if (sec) sec.style.display = noRoles ? "none" : ""; });
@@ -2044,7 +2046,17 @@ function openSetup() {
     bs.forEach(b => { b.checked = on; b.dispatchEvent(new Event("change", {bubbles: true})); });
     openAll.textContent = on ? "🔒 全部關閉 (不開放)" : "🔓 全部開放玩家";
   }});
-  const drawMode = () => { modeBox.textContent = ""; modeBox.append(seg([["normal", "正常模式"], ["shuffle", "🔀 百變模式"]], st.mode, v => { st.mode = v; })); };
+  const drawMode = () => {
+    modeBox.textContent = "";
+    const opts = [["normal", "正常模式"], ["shuffle", "🔀 百變模式"]];
+    if (st.n >= 4) opts.push(["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"]);   // 休閒玩法: 限 4 人以上
+    const cur = (st.rm === "hunt" || st.rm === "traitor") ? st.rm : st.mode;
+    modeBox.append(seg(opts, cur, v => {
+      if (v === "hunt" || v === "traitor") { st.rm = v; st.mode = "normal"; }
+      else { st.mode = v; if (st.rm === "hunt" || st.rm === "traitor") st.rm = "normal"; }
+      drawMode(); rebuild();
+    }));
+  };
   const rkSide = h("div", {class: "rkside"}), rkIn = h("div", {class: "rkin"});
   const drawRk = () => {   // 段位模式: 右邊顯示目前段位與距離下一段位的分數
     const p = S.prof, on = st.ranked === "ranked" && p;
@@ -2093,8 +2105,8 @@ function openSetup() {
       sect("主公座位", "主公從哪個座位開始;身分會在開局時才揭曉", lordBox),
       sect("電腦難度", "上面一排是一次調整全部電腦;每個座位也可以在下方「座位與武將」各自調整。段位模式打贏電腦加的積分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 / 極強 +40;輸了扣的分數和同難度贏的加分一樣 (勝率超過約 50% 才會升)。同場有其他真人時,輸贏分數會依對手平均積分與你的差距調整 (最多 ±50%)。段位模式的電腦難度不能自己調,跟著入座玩家的平均段位走: 青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強。", diffSeg = seg(diffLabels().map((t, k) => [k + 1, t]), st.diff, v => { st.diff = v; seatBox.querySelectorAll("select[data-dseat]").forEach(x => { x.value = String(v); keepD[x.dataset.dseat] = String(v); }); })),
       sect("基礎體力上限", "所有武將的體力上限一起增減 (預設 4);原本就比較高或低的武將會保留差距。例如設 6,原本 4 血的武將變 6 血,原本 3 血的變 5 血", hpBox),
-      sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變)", modeBox),
-      sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限;暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (目標被別人殺掉就換一個);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒就是叛徒獲勝", rmBox),
+      sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變);暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (目標被別人殺掉就換一個);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒就是叛徒獲勝 (這兩個休閒模式限 4 人以上)", modeBox),
+      sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限", rmBox),
       sect("進階", "", h("div", {class: "adv"},
         h("label", {class: "fld", title: "打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)"}, h("span", {text: "旁觀者可看全部身分 / 手牌"}), specAll),
         h("label", {class: "fld"}, h("span", {text: "每步長度 (秒,0.05 = 最快)"}), h("div", {class: "rng"}, speed, speedV)))),
