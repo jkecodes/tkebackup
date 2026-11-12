@@ -90,6 +90,8 @@ class ProAgent(LeveledAgent):
 
     # ------------------------------------------------------------ 卡牌優先度
     pri = PRI        # 卡牌優先度表 (測試台可以換成別張表做對照)
+    spy = None       # 內奸的平衡打法參數 (None = 關)
+    hunt_bonus = 40  # 暗殺目標模式: 打自己目標的加分
     threat = {}      # 武將集火加分 (武將名 → 加到 tscore 的分數)。實測「照武將勝率加分」沒效果 (+0.2 / +0.3 / +0.05 / -0.2), 所以留空
     dg_data = 1      # 偽裝變成誰: 0 = 原本的固定順序, 1 = 照實測表 (對照測試 +1.03 個百分點)
     dg_th = 0.5      # 實測表分數至少多少才用偽裝
@@ -144,6 +146,8 @@ class ProAgent(LeveledAgent):
         if att >= 1.0:
             return -999
         sc = 50 - q.hp * 5 - len(q.hand) * 0.3 + (25 if q.hp <= 1 else 0) - att * 6
+        if getattr(g, "hunt", False) and g.targets.get(p.idx) == q.idx:   # 暗殺目標模式: 自己的目標優先打 (親手殺死就贏)
+            sc += self.hunt_bonus
         if self.threat and self.adv("combo"):   # 強的武將先打 (5 級才開)
             sc += self.threat.get(q._char.name, 0)
         if p.role == "反賊" and q is g.lord and not getattr(g, "hidden_lord", False):
@@ -151,7 +155,47 @@ class ProAgent(LeveledAgent):
         elif p.role == "內奸" and q is g.lord and not getattr(g, "hidden_lord", False):
             others = [x for x in g.alive_players() if x is not p and x is not g.lord]
             return -999 if others else (200 if self._lethal else 100)
+        elif p.role == "內奸" and self.spy and self.adv("combo") and not getattr(g, "hidden_lord", False):
+            b = self.spy_bias(g, p, q)
+            if b <= -900:
+                return -999
+            sc += b
         return sc
+
+    def spy_want(self, g, p):
+        """內奸現在該削弱哪一邊: 'R' 反賊 / 'Z' 忠臣 / None (只剩一邊,照常打)。回傳 (想打的一邊, {玩家idx: 'R' / 'Z' / '?'})。
+        場上還剩幾個反賊 / 忠臣是公開資訊 (總數固定,死掉的會翻身分); 誰是誰只靠公開行為推理 (sus)。"""
+        cfg = self.spy
+        lord = g.lord
+        others = [x for x in g.alive_players() if x is not p and x is not lord]
+        R = sum(1 for x in others if x.role == "反賊")
+        Z = sum(1 for x in others if x.role == "忠臣")
+        th = cfg.get("th", 1.0)
+        cls = {x.idx: ("R" if self.sus.get(x.idx, 0.0) >= th else "Z" if self.sus.get(x.idx, 0.0) <= -th else "?") for x in others}
+        if R == 0 or Z == 0:
+            return None, cls
+        nr, nz = sum(1 for v in cls.values() if v == "R"), sum(1 for v in cls.values() if v == "Z")
+        if nr >= R:      # 反賊都認出來了: 剩下的是忠臣
+            cls = {k: ("Z" if v == "?" else v) for k, v in cls.items()}
+        elif nz >= Z:    # 忠臣都認出來了: 剩下的是反賊
+            cls = {k: ("R" if v == "?" else v) for k, v in cls.items()}
+        if not lord.alive or lord.hp <= cfg.get("dhp", 2):
+            return "R", cls      # 主公有危險: 先清反賊 (主公一死就是反賊贏)
+        if R <= Z + cfg.get("margin", 0):
+            return "Z", cls      # 反賊不比忠臣多: 留著反賊牽制,先削忠臣
+        return "R", cls
+
+    def spy_bias(self, g, p, q):
+        want, cls = self.spy_want(g, p)
+        c = cls.get(q.idx, "?")
+        if want is None or c == "?":
+            return 0
+        cfg = self.spy
+        if c == want:
+            return cfg.get("b", 30)
+        if want == "Z" and cfg.get("block", 0):   # 留著牽制用的反賊: 完全不打
+            return -999
+        return -cfg.get("b", 30)
 
     def foes_of(self, g, p):
         return [q for q in g.others(p) if self.tscore(g, p, q) > -100]
@@ -820,6 +864,9 @@ class ProAgent(LeveledAgent):
             return None
         if need == "受傷響應":
             return self.react_damage(g, p, cands, ctx) if self.adv("bolt") else None
+        if (need == "桃" and p.role == "內奸" and self.spy and self.spy.get("nosave", 1) and self.adv("combo")
+                and ctx.get("target") not in (None, p, g.lord)):
+            return None   # 內奸的桃只留給自己和主公 (不救假裝的隊友)
         return super().respond(g, p, need, cands, ctx)
 
     def react_damage(self, g, p, cands, ctx):

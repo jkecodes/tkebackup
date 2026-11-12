@@ -198,6 +198,12 @@ class HeuristicAgent(RandomAgent):
         s.setdefault(tgt.idx, 0.0)
         if kind in ("attack", "hurt"):
             w = 1.0 if kind == "attack" else 0.4
+            if getattr(g, "traitor", False):   # 抓叛徒: 打可疑的人 → 比較像好人; 打沒嫌疑的人 → 可疑
+                s[src.idx] += (-1.0 if s[tgt.idx] >= 1.0 else 1.5) * w
+                if tgt is me:
+                    self.grudge[src.idx] = self.grudge.get(src.idx, 0) + 1
+                s[src.idx] = max(-6.0, min(6.0, s[src.idx]))
+                return
             if tgt is lord:
                 s[src.idx] += 3.0 * w
             elif s[tgt.idx] >= 1.5:     # 打可疑的人 -> 像忠臣
@@ -238,6 +244,11 @@ class HeuristicAgent(RandomAgent):
             return 5
         if me.role == "無":   # 2~3 人無身分: 所有人都是敵人
             return -3
+        if getattr(g, "traitor", False):   # 抓叛徒: 叛徒要殺光所有人; 好人不知道誰是叛徒,只打「無故打人」的可疑對象 (只看公開行為)
+            if me.role == "叛徒":
+                return -3
+            s = self.sus.get(other.idx, 0.0) + 0.5 * min(2, self.grudge.get(other.idx, 0))
+            return -2.0 - 0.3 * s if s >= 1.0 else 1.2
         if getattr(g, "role_mode", "") == "open":   # 全部身分公開: 直接用真實身分
             return true_att(g, me, other)
         r = me.role

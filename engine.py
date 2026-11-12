@@ -196,17 +196,26 @@ class Game:
         self.mode, self.lord_bonus = mode, lord_bonus   # mode: normal 正常 / shuffle 百變 (第 2 輪起每次輪到自己都換新武將)
         n = len(agents)
         # role_mode: normal 正常 / none 無身分 (各打各的,最後活著的人贏;2~3 人固定這樣) / open 全部身分公開 / hidden 主公不公開 (不加體力上限)
-        role_mode = role_mode if role_mode in ("normal", "none", "open", "hidden") and n >= 4 else ("none" if n < 4 else "normal")
+        # hunt 暗殺目標 (休閒): 沒有身分,每人暗中拿到一個要殺的目標,先親手殺死自己目標的人獲勝 (3 人以上)
+        # traitor 抓叛徒 (休閒): 全部人裡有一個叛徒,其他人都是好人但不知道誰是叛徒; 死掉的人會公布是不是叛徒;
+        #   叛徒死了 → 好人全體獲勝; 只剩叛徒 → 叛徒獲勝 (3 人以上)
+        if role_mode in ("hunt", "traitor") and n >= 3:
+            pass
+        else:
+            role_mode = role_mode if role_mode in ("normal", "none", "open", "hidden") and n >= 4 else ("none" if n < 4 else "normal")
         self.role_mode = role_mode
-        roles = ["無"] * n if role_mode == "none" else ROLES[n][role_variant % len(ROLES[n])][:]
+        roles = ["無"] * n if role_mode in ("none", "hunt") else (["叛徒"] + ["好人"] * (n - 1)) if role_mode == "traitor" else ROLES[n][role_variant % len(ROLES[n])][:]
         self.rng.shuffle(roles)
-        self.noroles = role_mode == "none"   # 沒有主公加成、沒有身分勝負
-        self.hidden_lord = role_mode == "hidden"
+        self.noroles = role_mode in ("none", "hunt")   # 沒有主公加成、沒有身分勝負
+        self.hunt = role_mode == "hunt"
+        self.targets: dict = {}   # 暗殺目標: 玩家 idx -> 目標 idx (只有自己知道)
+        self.traitor = role_mode == "traitor"
+        self.hidden_lord = role_mode == "hidden" or self.traitor   # 抓叛徒: 沒有主公 (不公開、不加體力、隨機一位先出牌)
         if self.hidden_lord:
             lord_bonus = 0
         self.lord_bonus = lord_bonus
         ls = self.rng.randrange(n) if lord_seat in (None, "random") else int(lord_seat) % n   # 無身分時 ls 只是起始座位
-        if self.noroles:
+        if self.noroles or self.traitor:
             lord_bonus = 0
         else:
             roles.remove("主公")
@@ -227,6 +236,9 @@ class Game:
         self.lord = self.players[ls]
         # 第一個出牌的人: 一般從主公開始; 主公不公開時從隨機一位玩家開始 (不然誰先出牌誰就是主公)
         self.first = self.players[self.rng.randrange(n)] if self.hidden_lord else self.lord
+        if self.hunt:
+            for q in self.players:
+                self.targets[q.idx] = self.rng.choice([x.idx for x in self.players if x is not q])
         self.dir = 1                    # 輪次方向: +1 往左 (座位號遞增) / -1 往右;第一個出牌的人第一回合結束後決定
         self.lord.maxhp += lord_bonus   # 主公多 lord_bonus 點體力上限
         self.lord.hp += lord_bonus
@@ -837,6 +849,8 @@ class Game:
         if src and src is not tgt:
             self.emit("kill", src, tgt)
         self.log(f"  *** {tgt.name} 陣亡 ***")
+        if self.traitor:
+            self.log(f"  P{tgt.idx} {'就是叛徒' if tgt.role == '叛徒' else '不是叛徒'}")
         taker = next((q for q in self.alive_players() if q.char.takes_dead_cards(self, q)), None)
         mine = tgt.all_cards()
         if taker:
@@ -847,6 +861,17 @@ class Game:
         self.discard.extend(getattr(c, "orig", c) for c in tgt.judge + tgt.stash)
         tgt.hand, tgt.judge, tgt.stash = [], [], []
         tgt.equip = dict(EMPTY_EQUIP)
+        if self.hunt:
+            if src is not None and src is not tgt and src.alive and self.targets.get(src.idx) == tgt.idx:
+                self.log(f"  {src.name} 親手殺死了自己的暗殺目標 {tgt.name}")
+                self.winner = f"P{src.idx}"
+                raise GameOver()
+            for q in self.alive_players():   # 目標被別人殺掉 (或不是被人殺死): 重新隨機一個目標
+                if self.targets.get(q.idx) == tgt.idx:
+                    pool = [x.idx for x in self.alive_players() if x is not q]
+                    if pool:
+                        self.targets[q.idx] = self.rng.choice(pool)
+            self.targets.pop(tgt.idx, None)
         self.check_win()
         if src and src.alive:
             if tgt.role == "反賊":
@@ -869,6 +894,14 @@ class Game:
             for q in self.alive_players():
                 if q.role == "內奸":
                     q.duel1 = True
+        if self.traitor:
+            if "叛徒" not in roles:
+                self.winner = "好人"
+            elif roles == ["叛徒"]:
+                self.winner = "叛徒"
+            if self.winner:
+                raise GameOver()
+            return
         if not self.lord.alive:
             self.winner = "內奸" if roles == ["內奸"] else "反賊"
         elif "反賊" not in roles and "內奸" not in roles:

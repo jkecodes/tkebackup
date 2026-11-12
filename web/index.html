@@ -66,6 +66,7 @@ html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px
 .pl .inf{min-width:0;flex:1}
 .pl .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{display:inline-block;padding:0 8px;border-radius:99px;font-size:11px;font-weight:700;margin-left:5px;background:#394150;color:#fff;vertical-align:1px}
+.role.叛徒{background:linear-gradient(#b455e0,#6a2a94)}.role.好人{background:linear-gradient(#4f9be8,#2a5f9c)}.tag.hunt{background:#7a1f2a;color:#ffd9dd;border:1px solid #e0504a;font-weight:700}
 .role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}
 .hp{letter-spacing:1px;color:var(--red);font-size:14px;text-shadow:0 0 6px rgba(239,91,85,.4)}
 .hp .e{color:#43343a;text-shadow:none}
@@ -1081,7 +1082,7 @@ function winnerSet(snap) {   // 勝利陣營包含哪些玩家 (含已死亡者)
   if (!w) return s;
   const mm = /^P(\d+)$/.exec(w); if (mm) { s.add(+mm[1]); return s; }   // 無身分模式: 勝利者就是最後活著的那個人
   if (snap.solo_winner != null) { s.add(snap.solo_winner); return s; }   // 曹植七輪後獨自勝利: 只有他算贏
-  const roles = w.startsWith("主公") ? ["主公", "忠臣"] : w.startsWith("反賊") ? ["反賊"] : w.startsWith("內奸") ? ["內奸"] : [];
+  const roles = w.startsWith("主公") ? ["主公", "忠臣"] : w.startsWith("反賊") ? ["反賊"] : w.startsWith("內奸") ? ["內奸"] : w.startsWith("好人") ? ["好人"] : w.startsWith("叛徒") ? ["叛徒"] : [];   // 抓叛徒: 好人贏的話,陣亡的好人也算贏
   snap.players.forEach(p => { if (roles.includes(p.role) && (p.role !== "內奸" || p.alive !== false)) s.add(p.idx); });   // 內奸沒有隊友: 只有存活的那位算贏
   return s;
 }
@@ -1164,6 +1165,7 @@ function renderTable0(snap) {
       ph.append(cv, h("span", {class: "wei", text: p.disguise_kind === "alias" ? "化" : "偽"}));
     }
     if (p.flipped) { ph.style.backgroundImage = `url("/thumb/char/_back?v=ink4")`; ph.classList.add("back"); }   // 翻面: 武將牌顯示牌背
+    const myTarget = snap.viewer != null && snap.players[snap.viewer] ? snap.players[snap.viewer].target : null;
     const role = p.role === "無" ? "" : p.role === "?" ? h("span", {class: "role", text: "?"}) : h("span", {class: "role " + p.role, text: p.role});
     const tags = h("div", {class: "tags"});
     const eq = p.equip;
@@ -1176,6 +1178,8 @@ function renderTable0(snap) {
     if (p.flipped) tags.append(h("span", {class: "tag flip", text: "翻面"}));
     if (p.stash_n) tags.append(h("span", {class: "tag", text: "未×" + p.stash_n}));
     (p.badges || []).forEach(b => tags.append(h("span", {class: "tag bd bd-" + b.k, text: b.t})));
+    if (myTarget === p.idx) tags.append(h("span", {class: "tag hunt", title: "你的暗殺目標: 親手殺死他就獲勝", text: "🎯 你的目標"}));
+    else if (p.target != null && snap.viewer == null) tags.append(h("span", {class: "tag hunt", title: "他的暗殺目標", text: "🎯→P" + p.target}));
     const inf = h("div", {class: "inf"},
       h("div", {class: "nm"}, h("span", {class: "pn", title: p.char || "", text: "P" + p.idx + " " + ((p.disguise_kind === "disguise" && !p.dg_flip && p.disguise) || p.char || "無名")}), role, winners.has(p.idx) ? h("span", {class: "winb", text: "🏆 勝"}) : ""),
       h("div", {}, hearts(p)), (zhPick && zhPick.has(p.idx) ? h("div", {class: "meta hpick", title: "隨機選一張手牌", text: "手牌 " + p.hand_n + " ▸", onclick: ev => { ev.stopPropagation(); zsub(zhPick.get(p.idx))(); }}) : h("div", {class: "meta"}, "手牌 " + p.hand_n, bkEl(p.idx))), h("div", Object.assign({class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai")}, ((a) => a ? {class: "who " + (p.is_viewer ? "me" : p.human && p.nick ? "hum" : "ai") + " clk", title: "查看個人資訊", onclick: ev => { ev.stopPropagation(); showPlayer(a); }} : {})(((snap.online || []).find(o => o.seat === p.idx && o.acc) || {}).acc)), (p.nick || p.is_viewer) ? avEl(p.avatar, (snap.avstyles || {})[p.idx], {class: "av"}) : avEl("bot", (snap.avstyles || {})[p.idx], {class: "av"}), h("span", {class: "wn"}, (p.is_viewer ? "你" + (p.nick ? "(" + p.nick + ")" : "") : p.human ? (p.nick || "🤖 電腦代打") : "🤖 電腦" + (snap.ai_lv && snap.ai_lv[p.idx] ? " · " + diffLabels()[snap.ai_lv[p.idx] - 1] : ""))), p.host_seat ? h("span", {class: "hst", title: "房主"}, " 👑", h("span", {class: "hstx", text: "房主"})) : "", p.nick || p.is_viewer ? h("div", {class: "whorank"}, rkp(p.lv, true)) : null),   // 段位 (轉生 + 段位標籤) 放在名字下面一行
@@ -2020,10 +2024,10 @@ function openSetup() {
     lordBox.append(seg([["random", "🎲 隨機"], ...Array.from({length: n}, (_, i) => [String(i), "座位 " + i])], String(st.lord), v => { st.lord = v; }));
     rmBox.textContent = "";
     if (n < 4) rmBox.append(h("span", {class: "meta", text: "2~3 人固定為無身分模式: 沒有身分,各打各的,最後活著的人獲勝"}));
-    else rmBox.append(seg([["normal", "正常"], ["none", "無身分 (各打各的)"], ["open", "身分全公開"], ["hidden", "主公不公開"]], st.rm, v => { st.rm = v; rebuild(); }));
+    else rmBox.append(seg([["normal", "正常"], ["none", "無身分 (各打各的)"], ["open", "身分全公開"], ["hidden", "主公不公開"], ["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"]], st.rm, v => { st.rm = v; rebuild(); }));
     const r = S.roles[n] || [];
     varBox.textContent = "";
-    if (n < 4 || st.rm === "none") return seatsOnly();
+    if (n < 4 || st.rm === "none" || st.rm === "hunt" || st.rm === "traitor") return seatsOnly();
     varBox.append(seg(r.map((a, i) => [i, "配置 " + "AB"[i] + ": " + cnt(a)]), Math.min(st.variant, r.length - 1), v => { st.variant = v; }));
     seatBox.textContent = "";
     for (let i = 0; i < n; i++) seatBox.append(mkSeat(i, n));
@@ -2087,7 +2091,7 @@ function openSetup() {
       sect("電腦難度", "上面一排是一次調整全部電腦;每個座位也可以在下方「座位與武將」各自調整。段位模式打贏電腦加的積分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 / 極強 +40;輸了扣的分數和同難度贏的加分一樣 (勝率超過約 50% 才會升)。同場有其他真人時,輸贏分數會依對手平均積分與你的差距調整 (最多 ±50%)。段位模式的電腦難度不能自己調,跟著入座玩家的平均段位走: 青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強。", diffSeg = seg(diffLabels().map((t, k) => [k + 1, t]), st.diff, v => { st.diff = v; seatBox.querySelectorAll("select[data-dseat]").forEach(x => { x.value = String(v); keepD[x.dataset.dseat] = String(v); }); })),
       sect("基礎體力上限", "所有武將的體力上限一起增減 (預設 4);原本就比較高或低的武將會保留差距。例如設 6,原本 4 血的武將變 6 血,原本 3 血的變 5 血", hpBox),
       sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變)", modeBox),
-      sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限", rmBox),
+      sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限;暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (目標被別人殺掉就換一個);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒就是叛徒獲勝", rmBox),
       sect("進階", "", h("div", {class: "adv"},
         h("label", {class: "fld", title: "打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)"}, h("span", {text: "旁觀者可看全部身分 / 手牌"}), specAll),
         h("label", {class: "fld"}, h("span", {text: "每步長度 (秒,0.05 = 最快)"}), h("div", {class: "rng"}, speed, speedV)))),

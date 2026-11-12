@@ -303,6 +303,7 @@ def player_dict(g, p, viewer, show_all, nicks={}, humans=(), m_host=(), lvs={}, 
         "chained": p.chained, "flipped": p.flipped, "dg_flip": p.dg_flip, "is_viewer": p.idx == viewer, "nick": nicks.get(p.idx), "lv": lvs.get(p.idx), "avatar": avs.get(p.idx), "human": p.idx in humans, "host_seat": bool(m_host) and p.idx in m_host,
         "marks": getattr(p._char, "ren", None) if p._char.name == "劉備" and not hide_bd and sub_c is None else None,
         "badges": [] if hide_bd else _badges(g, p, sub_c),
+        "target": (getattr(g, "targets", {}).get(p.idx) if getattr(g, "hunt", False) and p.alive and (show_all or p.idx == viewer) else None),   # 暗殺目標模式: 只有自己 (和可以全看的旁觀者) 看得到
     }
 
 
