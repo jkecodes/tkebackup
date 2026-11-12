@@ -202,4 +202,8 @@ window.SGS_LOG_TPL = (window.SGS_LOG_TPL || []).concat([
 ["{} 親手殺死了自己的暗殺目標 {}", "{1} personally killed their assassination target {2}", "{1} が自分の暗殺標的 {2} を自らの手で倒した"],
 ["{} 就是叛徒", "{1} was the traitor", "{1} は裏切り者だった"],
 ["{} 不是叛徒", "{1} was not the traitor", "{1} は裏切り者ではなかった"],
+["留下哪一件武器", "Which weapon to keep", "どの武器を残すか"],
+["留下哪一件防具", "Which armor to keep", "どの防具を残すか"],
+["留下 {} (丟掉 {})", "Keep {1} (discard {2})", "{1} を残す({2} を捨てる)"],
+["{} 不能裝備防具,{} 直接丟進棄牌堆", "{1} can't equip armor; {2} goes straight to the discard pile", "{1} は防具を装備できない。{2} はそのまま捨て札へ"],
 ]);

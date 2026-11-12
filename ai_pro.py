@@ -83,10 +83,96 @@ class ProAgent(LeveledAgent):
         self.err_level = max(1, min(5, int(level)))   # 內部判斷一律走 5 級的程式,難度只決定上面哪些進階判斷有開
         self._tries = {}
         self._dg_want = None
+        self.hits = {}        # 暗殺目標模式: (打人的 idx, 被打的 idx) -> 次數 (推測誰在追殺誰)
+        self.my_sus = 0.0     # 抓叛徒模式: 我自己在別人眼中有多可疑 (照同一套公開行為規則估)
+        self._tr_open = False # 抓叛徒模式: 叛徒是否已經不裝了
 
     def observe(self, g, me, kind, src, tgt):
+        if getattr(g, "hunt", False) or getattr(g, "traitor", False):
+            return self.mode_observe(g, me, kind, src, tgt)
         if self.adv("infer"):   # 2 級以下不從公開行為推理身分 (態度只剩「主公公開 / 已翻開的身分」這些明擺著的資訊)
             super().observe(g, me, kind, src, tgt)
+
+    # ------------------------------------------------------------ 休閒模式專用 (暗殺目標 / 抓叛徒)
+    # 五個難度 (只用公開資訊):
+    #   暗殺目標  1 弱: 一半的機會才去打自己的目標   2 中: 65%   3 強: 80%,並且記得誰一直打自己 (多半是追殺自己的人)
+    #             4 很強: 每次都挑最該打的人 (自己的目標 > 追殺自己的人 > 快死的人)
+    #             5 極強: 再從「誰一直打誰」推測別人的目標,搶先處理快要得手的人和他的獵物
+    #   抓叛徒    1~2: 好人只會還手 (打過自己的人); 叛徒見人就打
+    #             3: 好人從公開行為推理 (無故打人的可疑,打可疑的人比較像好人,殺死好人的更可疑)
+    #             4: 再加上挑最該打的目標
+    #             5: 叛徒會先裝好人 (只跟著打已經被懷疑的人),等到人少 / 手牌夠 / 能一回合殺人 / 已經被懷疑才動手
+    HUNT_P = {1: 0.5, 2: 0.65, 3: 0.8}
+
+    def mode_observe(self, g, me, kind, src, tgt):
+        if src is None or src is tgt or kind not in ("attack", "hurt", "kill"):
+            return
+        s = self.sus
+        s.setdefault(src.idx, 0.0)
+        s.setdefault(tgt.idx, 0.0)
+        w = 1.0 if kind == "attack" else 0.4
+        tr = getattr(g, "traitor", False)
+        if src is me:
+            if tr and kind != "kill":
+                self.my_sus += (-1.0 if s[tgt.idx] >= 1.0 else 1.5) * w
+            return
+        if kind != "kill" and tgt is me:   # 誰打過我: 所有難度都記得
+            self.grudge[src.idx] = self.grudge.get(src.idx, 0) + 1
+        if not self.adv("infer"):
+            return
+        if kind != "kill":
+            self.hits[(src.idx, tgt.idx)] = self.hits.get((src.idx, tgt.idx), 0.0) + w
+        if tr:
+            if kind == "kill":
+                if tgt.role == "好人":
+                    s[src.idx] += 2.0
+            else:
+                s[src.idx] += (-1.0 if s[tgt.idx] >= 1.0 else 1.5) * w
+            s[src.idx] = max(-6.0, min(6.0, s[src.idx]))
+
+    def _att(self, g, me, other):
+        if getattr(g, "traitor", False) and other is not me:
+            return self.traitor_att(g, me, other)
+        return super()._att(g, me, other)
+
+    def traitor_open(self, g, me):
+        """叛徒要不要撕破臉 (5 級才會先裝好人)。"""
+        if self._tr_open or not self.adv("combo"):
+            return True
+        alive = g.alive_players()
+        if (len(alive) <= 3 or self.my_sus >= 1.0 or (g.round >= 3 and len(me.hand) >= 6)
+                or (g.cur is me and any(q is not me and q.hp <= self._turn_damage(g, me) for q in alive))):
+            self._tr_open = True
+        return self._tr_open
+
+    def traitor_att(self, g, me, other):
+        s = self.sus.get(other.idx, 0.0)
+        gr = min(2, self.grudge.get(other.idx, 0))
+        if me.role == "叛徒":
+            if self.traitor_open(g, me):
+                return -3
+            return -2.5 if s >= 1.0 else 1.2   # 裝好人: 只跟著打已經被懷疑的人
+        if not self.adv("infer"):
+            return -2.5 if gr >= 1 else 1.2    # 低難度的好人: 只會還手
+        sc = s + 0.7 * gr
+        return -2.0 - 0.3 * sc if sc >= 1.0 else 1.2
+
+    def hunt_score(self, g, p, q):
+        """暗殺目標模式: 打 q 的額外加分。"""
+        sc = self.hunt_bonus if g.targets.get(p.idx) == q.idx else 0
+        if self.adv("infer"):   # 一直打我的人多半就是追殺我的人: 先解決他
+            sc += 6 * min(3, self.grudge.get(q.idx, 0))
+        if self.adv("combo"):   # 推測別人的目標: 誰的獵物快死了,那個人就快贏了 → 打他,或搶先把獵物殺掉
+            for x in g.alive_players():
+                if x is p:
+                    continue
+                best, bh = None, 1.5
+                for (a, b), h in self.hits.items():
+                    if a == x.idx and h > bh and b != p.idx and g.players[b].alive:
+                        best, bh = g.players[b], h
+                if best is not None and best.hp <= 2 and (q is x or q is best):
+                    sc += 12
+        return sc
 
     # ------------------------------------------------------------ 卡牌優先度
     pri = PRI        # 卡牌優先度表 (測試台可以換成別張表做對照)
@@ -146,8 +232,8 @@ class ProAgent(LeveledAgent):
         if att >= 1.0:
             return -999
         sc = 50 - q.hp * 5 - len(q.hand) * 0.3 + (25 if q.hp <= 1 else 0) - att * 6
-        if getattr(g, "hunt", False) and g.targets.get(p.idx) == q.idx:   # 暗殺目標模式: 自己的目標優先打 (親手殺死就贏)
-            sc += self.hunt_bonus
+        if getattr(g, "hunt", False):   # 暗殺目標模式: 自己的目標優先打 (親手殺死就贏)
+            sc += self.hunt_score(g, p, q)
         if self.threat and self.adv("combo"):   # 強的武將先打 (5 級才開)
             sc += self.threat.get(q._char.name, 0)
         if p.role == "反賊" and q is g.lord and not getattr(g, "hidden_lord", False):
@@ -609,6 +695,10 @@ class ProAgent(LeveledAgent):
             ok = [(i, t) for i, t in idx_t if hasattr(t, "hp") and self.tscore(g, p, t) > -100 and self.atk_adj(g, p, card, t) > -100]
             if not ok:
                 return None
+            if getattr(g, "hunt", False) and g.rng.random() < self.HUNT_P.get(self.err_level, 1.0):   # 暗殺目標: 低難度也知道要打自己的目標,只是不一定每次都記得
+                mine = [(i, t) for i, t in ok if g.targets.get(p.idx) == t.idx]
+                if mine:
+                    ok = mine
             i, t = g.rng.choice(ok)
             return i, self.tscore(g, p, t)
         for i, t in idx_t:
@@ -864,6 +954,8 @@ class ProAgent(LeveledAgent):
             return None
         if need == "受傷響應":
             return self.react_damage(g, p, cands, ctx) if self.adv("bolt") else None
+        if need == "桃" and p.role == "叛徒" and ctx.get("target") not in (None, p):
+            return None   # 抓叛徒: 叛徒不救人
         if (need == "桃" and p.role == "內奸" and self.spy and self.spy.get("nosave", 1) and self.adv("combo")
                 and ctx.get("target") not in (None, p, g.lord)):
             return None   # 內奸的桃只留給自己和主公 (不救假裝的隊友)

@@ -76,7 +76,7 @@ const W = [
   ["請選擇", "Choose", "選択してください"], ["操作…", "Act…", "操作…"], ["行動…", "Action…", "行動…"],
   ["不出", "Pass", "出さない"], ["不發動", "Don't activate", "発動しない"], ["不發動,這類選項本回合不再詢問", "Don't activate; stop asking about this this turn", "発動しない(このターンはもう聞かない)"],
   ["已陣亡", "Dead", "死亡"], ["檢視中", "Viewing", "表示中"], ["橫置", "Chained", "横向き"], ["翻面", "Flipped", "裏向き"],
-  ["亮牌", "Reveal", "公開"], ["內奸", "Spy", "内通者"], ["主公", "Emperor", "君主"], ["忠臣", "Loyalist", "家来"], ["反賊", "Rebel", "反逆者"],
+  ["亮牌", "Reveal", "公開"], ["內奸", "Spy", "内通者"], ["叛徒", "Traitor", "裏切り者"], ["好人", "Loyal", "味方"], ["輪次方向", "Turn direction", "ターン方向"], ["留下哪一件武器", "Which weapon to keep", "どの武器を残すか"], ["留下哪一件防具", "Which armor to keep", "どの防具を残すか"], ["主公", "Emperor", "君主"], ["忠臣", "Loyalist", "家来"], ["反賊", "Rebel", "反逆者"],
   ["點擊其他玩家切換", "click another player to switch", "他のプレイヤーをクリックで切替"],
   ["牌堆 ", "Deck ", "山札 "], ["本次連鎖", "This chain", "今回のチェーン"], ["棄牌堆 ", "Discard ", "捨て札 "], ["棄牌堆", "Discard pile", "捨て札"],
   ["判定結果", "Judgement", "判定結果"], ["連鎖回應", "Chain response", "チェーン応答"], ["詳細", "Details", "詳細"], ["全部", "All", "全て"],
