@@ -67,7 +67,7 @@ html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px
 .pl .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{display:inline-block;padding:0 8px;border-radius:99px;font-size:11px;font-weight:700;margin-left:5px;background:#394150;color:#fff;vertical-align:1px}
 .role.叛徒{background:linear-gradient(#b455e0,#6a2a94)}.role.好人{background:linear-gradient(#4f9be8,#2a5f9c)}.tag.hunt{background:#7a1f2a;color:#ffd9dd;border:1px solid #e0504a;font-weight:700}
-.role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}html body .pl.tm-b{background:linear-gradient(160deg,hsl(215 68% 36%/.97),hsl(220 70% 21%/.97))!important}html body .pl.tm-r{background:linear-gradient(160deg,rgba(120,36,36,.97),rgba(72,18,22,.97))!important}
+.role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}html body .pl.tm-b:not([data-bx]){background:linear-gradient(160deg,hsl(215 68% 36%/.97),hsl(220 70% 21%/.97))!important}html body .pl.tm-r:not([data-bx]){background:linear-gradient(160deg,rgba(120,36,36,.97),rgba(72,18,22,.97))!important}
 html body .pl.tm-lord:not(.waiting):not(.sel){outline:3px double #ffd24a;outline-offset:2px}
 .role.紅主公,.role.紅忠臣{background:linear-gradient(#e0504a,#9c2824)}.role.藍主公,.role.藍忠臣{background:linear-gradient(hsl(210 78% 60%),hsl(212 60% 38%))}.role.紅主公,.role.藍主公{box-shadow:inset 0 0 0 1px #ffd24a,0 1px 2px rgba(0,0,0,.4)}
 .hp{letter-spacing:1px;color:var(--red);font-size:14px;text-shadow:0 0 6px rgba(239,91,85,.4)}
@@ -1193,7 +1193,7 @@ function renderTable0(snap) {
                          style: rp ? {left: rp[0] + "px", top: rp[1] + "px", order: k} : {left: `clamp(var(--hw),${x}%,calc(100% - var(--hw)))`, top: `clamp(var(--hh),${y}%,calc(100% - var(--hh)))`, order: k}, onclick: () => { if (pickMode) { tpClick(S.tgtPick, p.idx, pend); return; } S.sel = S.sel === p.idx ? null : p.idx; $("#thf").value = S.sel == null ? "" : String(S.sel); renderThoughts(); renderTable(S.snap); }}, ph, inf);
     if (p.role && p.role.length > 1 && (p.role[0] === "紅" || p.role[0] === "藍")) el.classList.add(p.role[0] === "紅" ? "tm-r" : "tm-b", ...(p.role.endsWith("主公") ? ["tm-lord"] : []));   // 雙國戰: 紅 / 藍兩邊的底色,主公另外有金色雙線框
     if (snap.waiting === p.idx && !snap.over) el.append(h("i", {class: "wfr"}));   // 等待操作的虛線框: 用獨立圖層畫 (手機瀏覽器的虛線 outline 會漏掉其中一邊)
-    { const bx = ((snap.avstyles || {})[p.idx] || {}).bx; if (bx && window.SGS_BOX && !el.classList.contains("tm-r") && !el.classList.contains("tm-b")) SGS_BOX.apply(el, bx); }   // 雙國戰: 不套個人的玩家框,不然會蓋掉紅 / 藍底色   // 玩家框
+    { const bx = ((snap.avstyles || {})[p.idx] || {}).bx; if (bx && window.SGS_BOX) SGS_BOX.apply(el, bx); }   // 玩家框 (雙國戰也套用; 紅 / 藍看身分標籤)   // 玩家框
     if (exn) el.style.setProperty("--exn", exn);
     const t = S.lastTh[p.idx];
     const age = t && t._ts ? (Date.now() - t._ts) / 1000 : 99;
