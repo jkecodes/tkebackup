@@ -1829,6 +1829,7 @@ class Game:
         p.turn_flags["disguise_n"] = p.turn_flags.get("disguise_n", 0) + 1
         self.log(f"  {who} 偽裝成 {name},獲得他的技能直到回合結束")
         self._wei_who = who
+        self.sweep_equip()   # 原本能雙裝的人偽裝成不能雙裝的武將: 多的要丟一件
         for q in list(self.others(p)):
             q.char.on_other_wei(self, q, p, name)
 
@@ -1838,6 +1839,11 @@ class Game:
         if pick == "HAND" or pick not in tgt.equip_cards():
             return self.rng.choice(tgt.hand) if tgt.hand else self.rng.choice(tgt.equip_cards())
         return pick
+
+    def sweep_equip(self):
+        """武將 / 技能變了 (曹沖交換 / 偽裝 / 翻面 / 左慈化身…): 不能雙裝的人,多的武器 / 防具要選一件丟掉。"""
+        for q in list(self.alive_players()):
+            self.fix_equip(q)
 
     def fix_equip(self, q):
         """換裝後: 不能裝防具的武將 (典韋) 換到的防具馬上丟進棄牌堆;不能雙裝的武將,武器 / 防具各只能留一件,多的要選一件丟掉。"""
@@ -1951,6 +1957,7 @@ class Game:
         self.log(f"  {p.name} 武將牌翻面一回合 (技能無法使用)")
         p.flip_char.on_flipped(self, p)
         p.flipped = True
+        self.sweep_equip()   # 翻面後技能失效: 能雙裝的人多的要丟一件
 
     def pass_lightning(self, p, c):
         nxt = [q for q in self.others(p) if not q.char.immune_delayed and "閃電" not in q.char.immune_names]  # 魏延/典韋: 閃電跳過
@@ -2093,6 +2100,7 @@ class Game:
         p.char.on_turn_start(self, p)
         if not p.alive:
             return
+        self.sweep_equip()   # 左慈化身 / 郭圖逢紀變身後: 能不能雙裝可能變了
         for q in list(self.alive_players()):
             if q is not p and q.alive:
                 q.char.on_other_turn_start(self, q, p)
@@ -2172,6 +2180,7 @@ class Game:
             q.disguise = []
             q.dg_flip = False
             q.maxhp   # 偽裝結束: 體力上限變回來,體力超過就收到上限
+        self.sweep_equip()   # 偽裝結束 / 翻面狀態改變: 不能雙裝的人多的要丟一件
         for q in self.players:   # 鐵索橫置最多只到這個回合結束: 這回合橫置的人回合結束就轉回來
             if q.chained and getattr(q, "chain_turn", None) == self.turn_id:
                 q.chained = False
