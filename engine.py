@@ -176,6 +176,20 @@ class Player:
         return self.name
 
 
+# 關興: 單一對象錦囊 (指定一名玩家的錦囊) 對其他所有人也有效。借刀殺人 / 聲東擊西 / 出其不意要指定兩個以上的對象,不算
+SINGLE_TRICKS = ("順", "過", "決", "火攻", "拋", "鴻", "笑", "投", "轉", "降雷", "強", "弱", "漁", "樂", "兵", "毒", "草")
+
+
+class _Pile(list):
+    """棄牌堆: 關興的「分身延時錦囊」(ghost) 是複製出來放在別人判定區的,離開判定區時直接消失,不能進棄牌堆 (牌數要守恆)。"""
+    def append(self, c):
+        if not getattr(c, "ghost", False):
+            list.append(self, c)
+
+    def extend(self, cs):
+        list.extend(self, [c for c in cs if not getattr(c, "ghost", False)])
+
+
 class Game:
     def __init__(self, agents, seed=0, verbose=False, max_rounds=100, chars=None, role_variant=0, lord_seat=0, lord_bonus=1, mode="normal", role_mode="normal", base_hp=4):
         self.rng = random.Random(seed)
@@ -216,7 +230,7 @@ class Game:
         self.lord.hp += lord_bonus
         self.deck = build_deck(self.rng)
         self.total_cards = len(self.deck)
-        self.discard: list[Card] = []
+        self.discard: list[Card] = _Pile()
         self.last_reveal = None  # (標題, [(玩家idx, 牌), ...]) 例如鴻門宴亮出的兩張牌
         self.last_judge = None   # (被判定者idx或None, 判定牌)
         self.verbose = verbose
@@ -366,7 +380,7 @@ class Game:
 
     def pop_deck(self):
         if not self.deck:
-            self.deck, self.discard = self.discard, []
+            self.deck, self.discard = list(self.discard), _Pile()
             self.rng.shuffle(self.deck)
         return self.deck.pop() if self.deck else None
 
@@ -472,7 +486,7 @@ class Game:
 
     def count_cards(self):
         return len(self.deck) + len(self.discard) + sum(
-            len(p.all_cards()) + len(p.judge) + len(p.stash) for p in self.players)
+            len(p.all_cards()) + sum(1 for j in p.judge if not getattr(j, "ghost", False)) + len(p.stash) for p in self.players)
 
     # ---------- 傷害 / 瀕死 / 死亡 ----------
     def damage(self, src, tgt, n, via_sha=False, nature=None, _bonus=True, _chain=False, _mods=True):
@@ -1977,11 +1991,21 @@ class Game:
                 jiu_must, jiu_ask = True, 0
             self.execute(p, card, tgt)
             if (p.alive and p.char.single_to_all and isinstance(tgt, Player) and not isinstance(card, SkillAct)
-                    and card.name in ("順", "過", "決", "火攻", "拋", "鴻", "笑", "投", "轉")):
+                    and card.name in SINGLE_TRICKS):
                 for q in self.others(p):
-                    if q is not tgt and q.alive and p.alive and not (card.name == "笑" and not p.hand):
-                        self.log(f"  [關興] 單一對象錦囊對 {q.name} 也有效")
-                        self.execute(p, card, q, _repeat=True)
+                    if q is tgt or not (q.alive and p.alive) or (card.name == "笑" and not p.hand):
+                        continue
+                    c2 = card
+                    if card.name in DELAYED:   # 延時錦囊只有一張實體牌: 對其他人放的是「分身」(離開判定區就消失,不進棄牌堆)
+                        if any(j.name == card.name for j in q.judge):
+                            continue
+                        c2 = Card(getattr(getattr(card, "orig", card), "id", -1), card.name, card.color, card.kind)
+                        c2.ghost = True
+                        c2.placed_by = p
+                    if not self.target_ok(p, (c2, q)):   # 陸遜 / 張紘 / 典韋… 本來就不能成為這張牌的對象
+                        continue
+                    self.log(f"  [關興] 單一對象錦囊對 {q.name} 也有效")
+                    self.execute(p, c2, q, _repeat=True)
             self.after_play(p, card)
             self.check_hands()
 
