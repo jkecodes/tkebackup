@@ -490,6 +490,9 @@ body:has(#modal .modal:not(.soft)) #bHand{display:none!important}   /* 新遊戲
   #mnav{display:grid;grid-template-columns:repeat(5,1fr);background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
   #mnav button{border:0;border-radius:0;background:transparent;color:var(--dim)}
   #mnav button.on{color:var(--accent);border-top:2px solid var(--accent)}
+  #mnav{position:relative;z-index:21}   /* 座位動畫 (火 / 像素…) 是直接放在 body 上的浮層,不能蓋住底下的分頁列 */
+  body:has(#modal .modal:not(.soft)) #mnav{z-index:auto}
+  body.m-side .anm,body.m-side .anmn{display:none!important}   /* 切到紀錄 / 武將 / 卡牌 / 聊天分頁時牌桌看不到,座位動畫不要浮在這些面板上 */
   #gset.on{display:flex;flex-direction:column;gap:8px;position:fixed;right:8px;left:8px;top:calc(var(--toph,48px) + 6px);z-index:7200;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 8px 28px rgba(0,0,0,.55)}
   #gset button{min-height:46px;font-size:15px;width:100%}
   #gset .gt{font-size:12px;color:var(--dim);margin:0 2px}
