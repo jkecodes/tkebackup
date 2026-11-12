@@ -19,7 +19,7 @@ ALIAS = {
 }
 _img_cache: dict = {}
 THUMB_V = "?v=ink2"   # 武將圖換成水墨版: 換網址讓瀏覽器不要用舊的快取
-ROLE_RE = re.compile(r"P(\d+)\((主公|忠臣|反賊|內奸)((?:/[^)]*)?)\)")
+ROLE_RE = re.compile(r"P(\d+)\((主公|忠臣|反賊|內奸|好人|叛徒)((?:/[^)]*)?)\)")   # 好人 / 叛徒: 抓叛徒模式的身分,一樣不能讓別人從戰報 / 詢問文字看到
 
 
 def _chain_cards(g):
@@ -296,7 +296,7 @@ def player_dict(g, p, viewer, show_all, nicks={}, humans=(), m_host=(), lvs={}, 
         "idx": p.idx, "name": p.name if reveal else fog_text(p.name, g, viewer, False),
         "char": p._char.name if p._char.name != "無名" else "", "faction": p._char.faction,
         "disguise": p.disguise[0].name if p.disguise else (p.alias[0].name if p.alias else None), "disguise_kind": "disguise" if p.disguise else "alias" if p.alias else None,
-        "role": p.role if (reveal or p.role == "無") else "?", "hp": p.hp,   # 無身分 / 暗殺目標模式: 大家都沒有身分,不用顯示「?」 "maxhp": p.maxhp, "alive": p.alive,
+        "role": p.role if (reveal or p.role == "無") else "?", "hp": p.hp, "maxhp": p.maxhp, "alive": p.alive,   # 無身分 / 暗殺目標模式: 大家都沒有身分,不用顯示「?」
         "hand_n": len(p.hand), "hand": [card_dict(c) for c in p.hand] if show_hand else None,
         "equip": {k: (card_dict(v) if v else None) for k, v in p.equip.items()},
         "judge": [card_dict(c) for c in p.judge], "stash_n": len(p.stash),
