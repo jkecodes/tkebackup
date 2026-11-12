@@ -1534,7 +1534,7 @@ class 曹沖(Char):
         p._char, user._char = user._char, p._char
         for q in (p, user):
             q.borrow, q.borrow2, q.alias, q.disguise = [], [], [], []   # 換了武將: 原本複製 / 化身 / 偽裝的狀態不帶過去
-            q.maxhp = max(1, q._char.maxhp + g.hp_offset) + (g.lord_bonus if q is g.lord else 0)   # 主公加成 / 難度調整跟著座位走,不跟武將
+            q.maxhp = max(1, q._char.maxhp + g.hp_offset) + (g.lord_bonus if q.is_lord else 0)   # 主公加成 / 難度調整跟著座位走,不跟武將
             q.hp = max(1, min(q.hp, q.maxhp))
         g.log(f"  交換完成: {p.name} / {user.name}")
         g.sweep_equip()   # 換成不能雙裝 / 不能裝防具的武將: 多的裝備要選一件丟掉

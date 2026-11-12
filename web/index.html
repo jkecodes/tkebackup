@@ -67,7 +67,7 @@ html input[type=checkbox]:not([hidden]):not(.sw input):focus-visible{outline:2px
 .pl .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{display:inline-block;padding:0 8px;border-radius:99px;font-size:11px;font-weight:700;margin-left:5px;background:#394150;color:#fff;vertical-align:1px}
 .role.叛徒{background:linear-gradient(#b455e0,#6a2a94)}.role.好人{background:linear-gradient(#4f9be8,#2a5f9c)}.tag.hunt{background:#7a1f2a;color:#ffd9dd;border:1px solid #e0504a;font-weight:700}
-.role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}
+.role.主公{background:linear-gradient(#e0504a,#9c2824)}.role.忠臣{background:linear-gradient(#e8bc2e,#a9801a);color:#2b2000}.role.反賊{background:linear-gradient(#3fb86f,#217a47)}.role.內奸{background:linear-gradient(#4a8be8,#2a5aa8)}.role.紅主公,.role.紅忠臣{background:linear-gradient(#e0504a,#9c2824)}.role.藍主公,.role.藍忠臣{background:linear-gradient(#4f9be8,#2a5f9c)}.role.紅主公,.role.藍主公{box-shadow:inset 0 0 0 1px #ffd24a,0 1px 2px rgba(0,0,0,.4)}
 .hp{letter-spacing:1px;color:var(--red);font-size:14px;text-shadow:0 0 6px rgba(239,91,85,.4)}
 .hp .e{color:#43343a;text-shadow:none}
 .meta{color:var(--dim);font-size:12px}
@@ -1082,7 +1082,7 @@ function winnerSet(snap) {   // 勝利陣營包含哪些玩家 (含已死亡者)
   if (!w) return s;
   const mm = /^P(\d+)$/.exec(w); if (mm) { s.add(+mm[1]); return s; }   // 無身分模式: 勝利者就是最後活著的那個人
   if (snap.solo_winner != null) { s.add(snap.solo_winner); return s; }   // 曹植七輪後獨自勝利: 只有他算贏
-  const roles = w.startsWith("主公") ? ["主公", "忠臣"] : w.startsWith("反賊") ? ["反賊"] : w.startsWith("內奸") ? ["內奸"] : w.startsWith("好人") ? ["好人"] : w.startsWith("叛徒") ? ["叛徒"] : [];   // 抓叛徒: 好人贏的話,陣亡的好人也算贏
+  const roles = w.startsWith("主公") ? ["主公", "忠臣"] : w.startsWith("反賊") ? ["反賊"] : w.startsWith("內奸") ? ["內奸"] : w.startsWith("好人") ? ["好人"] : w.startsWith("紅方") ? ["紅主公", "紅忠臣"] : w.startsWith("藍方") ? ["藍主公", "藍忠臣"] : w.startsWith("叛徒") ? ["叛徒"] : [];   // 抓叛徒: 好人贏的話,陣亡的好人也算贏
   snap.players.forEach(p => { if (roles.includes(p.role) && (p.role !== "內奸" || p.alive !== false)) s.add(p.idx); });   // 內奸沒有隊友: 只有存活的那位算贏
   return s;
 }
@@ -1978,6 +1978,8 @@ const diffLabels = () => { const L = (window.SGS_I18N && SGS_I18N.lang) || "zh";
 function openSetup() {
   const M = $("#modal"); M.textContent = ""; S.modalOpen = "setup";
   const roster = S.roster;
+  const CAS = ["hunt", "traitor", "team"];   // 休閒玩法 (放在「遊戲模式」那排): 暗殺目標 / 抓叛徒 (4 人以上) / 雙國戰 (4 6 8 10 人)
+  const casOk = (m, n) => m === "team" ? [4, 6, 8, 10].includes(n) : n >= 4;
   const st = {n: 4, human: "spectate", variant: 0, lord: "random", mode: "normal", diff: 3, rm: "normal", hp: 4, ranked: "casual"};
   const cnt = a => { const c = {}; a.forEach(x => c[x] = (c[x] || 0) + 1); return Object.entries(c).map(([k, v]) => k + v).join(" "); };
   const speed = h("input", {type: "range", min: 0.05, max: 1.5, step: 0.05, value: $("#speed").value});
@@ -2022,17 +2024,17 @@ function openSetup() {
     lordBox.textContent = "";
     if (st.lord !== "random" && +st.lord >= n) st.lord = "random";
     lordBox.append(seg([["random", "🎲 隨機"], ...Array.from({length: n}, (_, i) => [String(i), "座位 " + i])], String(st.lord), v => { st.lord = v; }));
-    if (n < 4 && (st.rm === "hunt" || st.rm === "traitor")) st.rm = "normal";   // 暗殺目標 / 抓叛徒 限 4 人以上
+    if (CAS.includes(st.rm) && !casOk(st.rm, n)) st.rm = "normal";   // 暗殺目標 / 抓叛徒 限 4 人以上; 雙國戰限 4 6 8 10 人
     drawMode();
     rmBox.textContent = "";
     if (n < 4) rmBox.append(h("span", {class: "meta", text: "2~3 人固定為無身分模式: 沒有身分,各打各的,最後活著的人獲勝"}));
     else rmBox.append(seg([["normal", "正常"], ["none", "無身分 (各打各的)"], ["open", "身分全公開"], ["hidden", "主公不公開"]], st.rm, v => { st.rm = v; rebuild(); }));
     const r = S.roles[n] || [];
-    const noRoles = n < 4 || st.rm === "none" || st.rm === "hunt" || st.rm === "traitor";   // 這些模式沒有主公 / 忠臣 / 反賊 / 內奸: 身分配置和主公座位整段收起來
+    const noRoles = n < 4 || st.rm === "none" || CAS.includes(st.rm);   // 這些模式沒有主公 / 忠臣 / 反賊 / 內奸: 身分配置和主公座位整段收起來
     const hideSec = () => [varBox, lordBox].forEach(b => { const sec = b.closest("section.sec"); if (sec) sec.style.display = noRoles ? "none" : ""; });
     hideSec(); setTimeout(hideSec, 0);   // 第一次重畫時視窗還沒組好 (找不到外層區塊): 組好後再套一次
     varBox.textContent = "";
-    if (n < 4 || st.rm === "none" || st.rm === "hunt" || st.rm === "traitor") return seatsOnly();
+    if (n < 4 || st.rm === "none" || CAS.includes(st.rm)) return seatsOnly();
     varBox.append(seg(r.map((a, i) => [i, "配置 " + "AB"[i] + ": " + cnt(a)]), Math.min(st.variant, r.length - 1), v => { st.variant = v; }));
     seatBox.textContent = "";
     for (let i = 0; i < n; i++) seatBox.append(mkSeat(i, n));
@@ -2049,11 +2051,11 @@ function openSetup() {
   const drawMode = () => {
     modeBox.textContent = "";
     const opts = [["normal", "正常模式"], ["shuffle", "🔀 百變模式"]];
-    if (st.n >= 4) opts.push(["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"]);   // 休閒玩法: 限 4 人以上
-    const cur = (st.rm === "hunt" || st.rm === "traitor") ? st.rm : st.mode;
+    [["hunt", "🎯 暗殺目標"], ["traitor", "🕵 抓叛徒"], ["team", "⚔ 雙國戰"]].forEach(o => { if (casOk(o[0], st.n)) opts.push(o); });   // 休閒玩法
+    const cur = CAS.includes(st.rm) ? st.rm : st.mode;
     modeBox.append(seg(opts, cur, v => {
-      if (v === "hunt" || v === "traitor") { st.rm = v; st.mode = "normal"; }
-      else { st.mode = v; if (st.rm === "hunt" || st.rm === "traitor") st.rm = "normal"; }
+      if (CAS.includes(v)) { st.rm = v; st.mode = "normal"; }
+      else { st.mode = v; if (CAS.includes(st.rm)) st.rm = "normal"; }
       drawMode(); rebuild();
     }));
   };
@@ -2105,7 +2107,7 @@ function openSetup() {
       sect("主公座位", "主公從哪個座位開始;身分會在開局時才揭曉", lordBox),
       sect("電腦難度", "上面一排是一次調整全部電腦;每個座位也可以在下方「座位與武將」各自調整。段位模式打贏電腦加的積分: 弱 +10 / 中 +18 / 強 +25 / 很強 +32 / 極強 +40;輸了扣的分數和同難度贏的加分一樣 (勝率超過約 50% 才會升)。同場有其他真人時,輸贏分數會依對手平均積分與你的差距調整 (最多 ±50%)。段位模式的電腦難度不能自己調,跟著入座玩家的平均段位走: 青銅 弱 / 白銀 中 / 黃金·白金 強 / 鑽石·大師 很強 / 傳說 極強。", diffSeg = seg(diffLabels().map((t, k) => [k + 1, t]), st.diff, v => { st.diff = v; seatBox.querySelectorAll("select[data-dseat]").forEach(x => { x.value = String(v); keepD[x.dataset.dseat] = String(v); }); })),
       sect("基礎體力上限", "所有武將的體力上限一起增減 (預設 4);原本就比較高或低的武將會保留差距。例如設 6,原本 4 血的武將變 6 血,原本 3 血的變 5 血", hpBox),
-      sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變);暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (目標被別人殺掉就換一個);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒就是叛徒獲勝 (這兩個休閒模式限 4 人以上)", modeBox),
+      sect("遊戲模式", "正常模式: 武將不變;百變模式: 第 2 輪起,每次輪到玩家的回合一開始都會隨機換成一位新武將 (已損失的體力不變);暗殺目標: 沒有身分,每人暗中拿到一個目標,先親手殺死自己目標的人獲勝 (目標被別人殺掉就換一個);抓叛徒: 所有人裡有一個叛徒,陣亡的人會公布是不是叛徒,叛徒死了好人全體獲勝,只剩叛徒或叛徒撐過第 5 輪還活著就是叛徒獲勝 (這兩個休閒模式限 4 人以上);雙國戰: 4 / 6 / 8 / 10 人分成紅藍兩邊,各有自己的主公和忠臣,身分全公開,先殺死對方主公的一邊獲勝;主公誤殺自己的忠臣會棄置所有手牌與裝備", modeBox),
       sect("身分模式", "正常: 一般身分局;無身分: 沒有主公反賊,各打各的,最後活著的人贏;身分全公開: 所有人的身分一開始就公開;主公不公開: 主公不亮身分,也不加體力上限", rmBox),
       sect("進階", "", h("div", {class: "adv"},
         h("label", {class: "fld", title: "打開後,沒有入座的旁觀者可以看到所有人的身分和手牌 (段位模式不能開,避免洩漏給正在打的人)"}, h("span", {text: "旁觀者可看全部身分 / 手牌"}), specAll),

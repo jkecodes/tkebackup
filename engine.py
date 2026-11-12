@@ -61,10 +61,19 @@ class Player:
             self._char.on_flip_change(self, bool(v))   # 蔣幹: 翻面時體力上限變 4
 
     @property
+    def is_lord(self):
+        return self.role in ("主公", "紅主公", "藍主公")
+
+    @property
+    def side(self):
+        """雙國戰: 所屬陣營 ("紅" / "藍"),其他模式是 None。"""
+        return self.role[0] if self.role[:1] in ("紅", "藍") and len(self.role) > 1 else None
+
+    @property
     def maxhp(self):
         d = self._char.dyn_maxhp(self) if getattr(self, "_char", None) is not None else None   # 孟獲: 手牌數 + 1,隨時變動
         if d is not None:
-            if self.g is not None and self.g.lord is self:
+            if self.g is not None and self.is_lord:
                 d += self.g.lord_bonus
             if self.hp > d and self.alive:
                 self.hp = max(1, d)
@@ -198,13 +207,17 @@ class Game:
         # role_mode: normal 正常 / none 無身分 (各打各的,最後活著的人贏;2~3 人固定這樣) / open 全部身分公開 / hidden 主公不公開 (不加體力上限)
         # hunt 暗殺目標 (休閒): 沒有身分,每人暗中拿到一個要殺的目標,先親手殺死自己目標的人獲勝 (4 人以上)
         # traitor 抓叛徒 (休閒): 全部人裡有一個叛徒,其他人都是好人但不知道誰是叛徒; 死掉的人會公布是不是叛徒;
-        #   叛徒死了 → 好人全體獲勝; 只剩叛徒 → 叛徒獲勝 (4 人以上)
+        #   叛徒死了 → 好人全體獲勝; 只剩叛徒 / 叛徒撐過第 5 輪還活著 → 叛徒獲勝 (4 人以上)
+        # team 雙國戰 (休閒): 4 / 6 / 8 / 10 人分兩邊 (紅方 / 藍方),各有自己的主公和忠臣,身分全公開,先殺死對方主公的一邊獲勝
         if role_mode in ("hunt", "traitor") and n >= 4:
+            pass
+        elif role_mode == "team" and n in (4, 6, 8, 10):
             pass
         else:
             role_mode = role_mode if role_mode in ("normal", "none", "open", "hidden") and n >= 4 else ("none" if n < 4 else "normal")
         self.role_mode = role_mode
-        roles = ["無"] * n if role_mode in ("none", "hunt") else (["叛徒"] + ["好人"] * (n - 1)) if role_mode == "traitor" else ROLES[n][role_variant % len(ROLES[n])][:]
+        self.team_mode = role_mode == "team"
+        roles = ["無"] * n if role_mode in ("none", "hunt", "team") else (["叛徒"] + ["好人"] * (n - 1)) if role_mode == "traitor" else ROLES[n][role_variant % len(ROLES[n])][:]
         self.rng.shuffle(roles)
         self.noroles = role_mode in ("none", "hunt")   # 沒有主公加成、沒有身分勝負
         self.hunt = role_mode == "hunt"
@@ -215,8 +228,16 @@ class Game:
             lord_bonus = 0
         self.lord_bonus = lord_bonus
         ls = self.rng.randrange(n) if lord_seat in (None, "random") else int(lord_seat) % n   # 無身分時 ls 只是起始座位
+        self.lords: dict = {}   # 雙國戰: 隊名 ("紅" / "藍") -> 該隊主公座位
         if self.noroles or self.traitor:
             lord_bonus = 0
+        elif self.team_mode:   # 座位紅藍交錯 (哪一邊先是隨機),每隊隨機一位當主公 (指定的主公座位那隊就是那位)
+            off = self.rng.randrange(2)
+            side = ["紅" if (i + off) % 2 == 0 else "藍" for i in range(n)]
+            for t in ("紅", "藍"):
+                seats = [i for i in range(n) if side[i] == t]
+                self.lords[t] = ls if side[ls] == t else self.rng.choice(seats)
+            roles = [side[i] + ("主公" if self.lords[side[i]] == i else "忠臣") for i in range(n)]
         else:
             roles.remove("主公")
             roles.insert(ls, "主公")  # 主公座位: 預設 0 號,GUI 預設隨機
@@ -240,8 +261,9 @@ class Game:
             for q in self.players:
                 self.targets[q.idx] = self.rng.choice([x.idx for x in self.players if x is not q])
         self.dir = 1                    # 輪次方向: +1 往左 (座位號遞增) / -1 往右;第一個出牌的人第一回合結束後決定
-        self.lord.maxhp += lord_bonus   # 主公多 lord_bonus 點體力上限
-        self.lord.hp += lord_bonus
+        for lp in ([self.players[i] for i in self.lords.values()] if self.team_mode else [self.lord]):   # 雙國戰: 兩位主公都多體力上限
+            lp.maxhp += lord_bonus   # 主公多 lord_bonus 點體力上限
+            lp.hp += lord_bonus
         self.deck = build_deck(self.rng)
         self.total_cards = len(self.deck)
         self.discard: list[Card] = _Pile()
@@ -255,7 +277,7 @@ class Game:
         self.round = 0
         self.lord_attackers: set[int] = set()
         self.revealed: dict[int, str] = {} if (self.noroles or self.hidden_lord) else {ls: "主公"}
-        if role_mode == "open":
+        if role_mode in ("open", "team"):
             self.revealed = {q.idx: q.role for q in self.players}   # 全部身分公開
         self.cur: Player = self.lord
         self.sha_used = 0
@@ -874,7 +896,11 @@ class Game:
             self.targets.pop(tgt.idx, None)
         self.check_win()
         if src and src.alive:
-            if tgt.role == "反賊":
+            if self.team_mode and src.is_lord and not tgt.is_lord and tgt.side == src.side and tgt is not src:   # 雙國戰: 主公誤殺自己的忠臣
+                for c in src.all_cards():
+                    self.discard_card(src, c)
+                self.log("  主公誤殺自己的忠臣,棄置所有手牌與裝備")
+            elif tgt.role == "反賊":
                 if self.draw(src, 3, blocked=True):
                     self.log(f"  {src.name} 擊殺反賊,抽3張")
             elif tgt.role == "忠臣" and src.role == "主公":
@@ -888,6 +914,12 @@ class Game:
             if len(alive) <= 1:
                 self.winner = f"P{alive[0].idx}" if alive else "平手"
                 raise GameOver()
+            return
+        if self.team_mode:   # 雙國戰: 一邊的主公死了,另一邊就贏
+            for t, o in (("紅", "藍"), ("藍", "紅")):
+                if not self.players[self.lords[t]].alive:
+                    self.winner = o + "方"
+                    raise GameOver()
             return
         roles = [p.role for p in self.alive_players()]
         if len(roles) == 2 and "內奸" in roles and self.lord.alive:   # 內奸撐到和主公單挑: 段位結算算「次級勝利」
@@ -2098,7 +2130,7 @@ class Game:
         old, new = p._char, ROSTER[nm]()
         missing = p.maxhp - p.hp
         p._char, p.borrow, p.borrow2, p.alias, p.disguise = new, [], [], [], []
-        p.maxhp = max(1, new.maxhp + self.hp_offset) + (self.lord_bonus if p is self.lord else 0)
+        p.maxhp = max(1, new.maxhp + self.hp_offset) + (self.lord_bonus if p.is_lord else 0)
         p.hp = max(1, p.maxhp - missing)
         self.log(f"  🔀 {p.idx} 號位的武將從 {old.name} 換成 {nm} (體力 {p.hp}/{p.maxhp})")
 
@@ -2248,6 +2280,12 @@ class Game:
                         self.take_turn(p)
                         assert self.count_cards() == self.total_cards, "牌數不守恆"
                     k += 1
+                if self.traitor and self.round >= 5:   # 抓叛徒: 叛徒撐過第 5 輪還活著就獲勝
+                    for q in self.alive_players():
+                        if q.role == "叛徒":
+                            self.log("  叛徒撐過了第 5 輪")
+                            self.winner = "叛徒"
+                            raise GameOver()
             self.winner = "平手(超過回合上限)"
         except GameOver:
             pass

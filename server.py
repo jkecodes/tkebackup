@@ -1363,8 +1363,9 @@ class Manager:
                 if len(g.players) <= 3:   # 2~3 人 (沒有隊友,只能靠自己): 贏的經驗加倍
                     wx = 2 * (wx if wx is not None else Profiles.XP_WIN)
                 draw = str(w).startswith("平手")
-                rw, rl = Profiles.role_mult(len(g.players), pl.role) if not noroles else (1.0, 1.0)
-                won = (pl.idx == g.solo_winner) if getattr(g, "solo_winner", None) is not None else (w == f"P{pl.idx}") if noroles else (camp(pl.role) == w and (pl.role != "內奸" or pl.alive))   # 曹植七輪獨自勝利: 只有曹植那位算贏
+                team = getattr(g, "team_mode", False)
+                rw, rl = Profiles.role_mult(len(g.players), pl.role) if not (noroles or team) else (1.0, 1.0)
+                won = (pl.idx == g.solo_winner) if getattr(g, "solo_winner", None) is not None else (w == f"P{pl.idx}") if noroles else (w == f"{pl.side}方") if team else (camp(pl.role) == w and (pl.role != "內奸" or pl.alive))   # 曹植七輪獨自勝利: 只有曹植那位算贏
                 if not won and not draw and pl.alive and pl.role != "內奸":
                     rl *= 0.8   # 輸了但自己撐到最後: 扣分打 8 折
                 partial = round(wrp * rw * 0.3) if (not won and not draw and pl.role == "內奸" and getattr(pl, "duel1", False)) else 0   # 內奸撐到和主公單挑才輸: 次級勝利,給贏分的 30%

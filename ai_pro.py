@@ -236,7 +236,10 @@ class ProAgent(LeveledAgent):
             sc += self.hunt_score(g, p, q)
         if self.threat and self.adv("combo"):   # 強的武將先打 (5 級才開)
             sc += self.threat.get(q._char.name, 0)
-        if p.role == "反賊" and q is g.lord and not getattr(g, "hidden_lord", False):
+        if getattr(g, "team_mode", False):   # 雙國戰: 對方主公是勝負關鍵
+            if q.is_lord and q.side != p.side:
+                sc += 300 if self._lethal else (60 if q.hp <= 2 else 25)
+        elif p.role == "反賊" and q is g.lord and not getattr(g, "hidden_lord", False):
             sc += 300 if self._lethal else (50 if q.hp <= 2 else 15)
         elif p.role == "內奸" and q is g.lord and not getattr(g, "hidden_lord", False):
             others = [x for x in g.alive_players() if x is not p and x is not g.lord]
@@ -333,8 +336,8 @@ class ProAgent(LeveledAgent):
             d = max(d, (5 + b["hammer"]) * mult)
         return d
 
-    def lethal_on_lord(self, g, p):
-        lord = g.lord
+    def lethal_on_lord(self, g, p, lord=None):
+        lord = lord or g.lord
         if getattr(g, "hidden_lord", False) or not lord.alive or lord is p:
             return False
         dmg = self.potential_damage(g, p)
@@ -344,7 +347,9 @@ class ProAgent(LeveledAgent):
 
     def update_lethal(self, g, p):
         self._lethal = False
-        if p.role == "反賊" or (p.role == "內奸" and not [x for x in g.alive_players() if x is not p and x is not g.lord]):
+        if getattr(g, "team_mode", False):   # 雙國戰: 一回合打得死對方主公就全力打
+            self._lethal = self.lethal_on_lord(g, p, g.players[g.lords["藍" if p.side == "紅" else "紅"]])
+        elif p.role == "反賊" or (p.role == "內奸" and not [x for x in g.alive_players() if x is not p and x is not g.lord]):
             self._lethal = self.lethal_on_lord(g, p)
 
     _lethal = False

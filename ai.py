@@ -244,6 +244,10 @@ class HeuristicAgent(RandomAgent):
             return 5
         if me.role == "無":   # 2~3 人無身分: 所有人都是敵人
             return -3
+        if getattr(g, "team_mode", False):   # 雙國戰: 身分全公開,同隊是隊友,另一隊都是敵人 (對方主公是首要目標)
+            if other.side == me.side:
+                return 5
+            return -4.5 if other.is_lord else -3
         if getattr(g, "traitor", False):   # 抓叛徒: 叛徒要殺光所有人; 好人不知道誰是叛徒,只打「無故打人」的可疑對象 (只看公開行為)
             if me.role == "叛徒":
                 return -3
