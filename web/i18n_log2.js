@@ -68,6 +68,7 @@ window.SGS_LOG_TPL = (window.SGS_LOG_TPL || []).concat([
 ["紅忠臣", "Red Loyalist", "紅の家来"],
 ["藍主公", "Blue Emperor", "青の君主"],
 ["藍忠臣", "Blue Loyalist", "青の家来"],
+["所有人重新分配暗殺目標", "Everyone's assassination targets are redrawn", "全員の暗殺ターゲットを引き直し"],
 ["紅方", "Red team", "紅チーム"],
 ["藍方", "Blue team", "青チーム"],
 ["⚔ 雙國戰", "⚔ Two Kingdoms", "⚔ 二国戦"],

@@ -258,8 +258,7 @@ class Game:
         # 第一個出牌的人: 一般從主公開始; 主公不公開時從隨機一位玩家開始 (不然誰先出牌誰就是主公)
         self.first = self.players[self.rng.randrange(n)] if self.hidden_lord else self.lord
         if self.hunt:
-            for q in self.players:
-                self.targets[q.idx] = self.rng.choice([x.idx for x in self.players if x is not q])
+            self.assign_targets()
         self.dir = 1                    # 輪次方向: +1 往左 (座位號遞增) / -1 往右;第一個出牌的人第一回合結束後決定
         for lp in ([self.players[i] for i in self.lords.values()] if self.team_mode else [self.lord]):   # 雙國戰: 兩位主公都多體力上限
             lp.maxhp += lord_bonus   # 主公多 lord_bonus 點體力上限
@@ -862,6 +861,12 @@ class Game:
         if tgt.hp <= 0:
             self.die(tgt, src)
 
+    def assign_targets(self):
+        """暗殺目標: 每個活著的人都有一個目標,而且每個人最多被一個人當目標 (隨機排成一個圈,每個人的目標是圈裡的下一位)。"""
+        al = [q.idx for q in self.alive_players()]
+        self.rng.shuffle(al)
+        self.targets = {al[i]: al[(i + 1) % len(al)] for i in range(len(al)) if len(al) > 1}
+
     def die(self, tgt, src):
         tgt.alive = False
         self.stats["kills"] += 1
@@ -888,12 +893,9 @@ class Game:
                 self.log(f"  {src.name} 親手殺死了自己的暗殺目標 {tgt.name}")
                 self.winner = f"P{src.idx}"
                 raise GameOver()
-            for q in self.alive_players():   # 目標被別人殺掉 (或不是被人殺死): 重新隨機一個目標
-                if self.targets.get(q.idx) == tgt.idx:
-                    pool = [x.idx for x in self.alive_players() if x is not q]
-                    if pool:
-                        self.targets[q.idx] = self.rng.choice(pool)
             self.targets.pop(tgt.idx, None)
+            self.assign_targets()   # 有人死了 (不是被他的獵人親手殺死): 全部活著的人重新隨機分目標
+            self.log("  所有人重新分配暗殺目標")
         self.check_win()
         if src and src.alive:
             if self.team_mode and src.is_lord and not tgt.is_lord and tgt.side == src.side and tgt is not src:   # 雙國戰: 主公誤殺自己的忠臣
