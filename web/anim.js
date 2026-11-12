@@ -623,12 +623,28 @@ void main(){
       sd = (o.seed || (id.charCodeAt(0) * 131 + kind.length * 31)) >>> 0;
       el.innerHTML = b[kind](T, o.g);
     }
+    if (!o.full) {   // 座位動畫要跟著座位走: 手機版捲動畫面時,動畫是 fixed 的不會跟著動 → 記下它蓋在哪個座位上,捲動時一起平移
+      const mx = rect.l + rect.w / 2, my = rect.t + rect.h / 2;
+      const pl = [...document.querySelectorAll(".pl[data-idx]")].find(e => { const r = e.getBoundingClientRect(); return mx >= r.left && mx <= r.right && my >= r.top && my <= r.bottom; });
+      if (pl) { const r = pl.getBoundingClientRect(); el._fi = pl.dataset.idx; el._fl = r.left; el._ft = r.top; }
+    }
     document.body.append(el); live.add(el);
     el.querySelectorAll("canvas[data-fire]").forEach(c => startFire(c, c.dataset.fire, T, el));
     setTimeout(() => { el.querySelectorAll("canvas").forEach(c => { c.style.display = "none"; c.width = c.height = 1; }); el.remove(); live.delete(el); }, T * 1000 + 300);
     return el;
   }
   function clearAll() { live.forEach(e => e.remove()); live.clear(); }
+  let followRaf = 0;
+  function followSeats() {
+    followRaf = 0;
+    live.forEach(el => {
+      if (el._fi == null) return;
+      const s = document.querySelector(`.pl[data-idx="${el._fi}"]`); if (!s) return;
+      const r = s.getBoundingClientRect();
+      el.style.transform = `translate(${r.left - el._fl}px,${r.top - el._ft}px)`;
+    });
+  }
+  window.addEventListener("scroll", () => { if (!followRaf && live.size) followRaf = requestAnimationFrame(followSeats); }, { capture: true, passive: true });   // 任何捲動區 (視窗或牌桌容器) 捲動都會觸發
   const rectOf = e => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; };
   const seatEl = i => document.querySelector(`.pl[data-idx="${i}"]`);
   const vw = () => ({ l: 0, t: 0, w: window.innerWidth, h: window.innerHeight });
