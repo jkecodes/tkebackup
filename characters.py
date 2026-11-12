@@ -2315,12 +2315,11 @@ class 左慈(Char):
 
     def on_turn_start(self, g, p):
         from_ = {q._char.name for q in g.players}
-        if self.used is None:
-            self.used = set()
-        pool = [n for n in ROSTER if n not in from_ and n not in self.used]
+        used = g.__dict__.setdefault("_zc_used", set())   # 全場共用: 不管有幾個左慈 (或左慈換過武將牌),已經化身過的武將大家都不能再選
+        pool = [n for n in ROSTER if n not in from_ and n not in used]
         if pool:
             n = pool[p.agent.choose_option(g, p, "左慈-化身", list(pool))]   # 還沒出現過的武將: 自己選 (電腦隨機)
-            self.used.add(n)
+            used.add(n)
             p.alias = [ROSTER[n]()]
             g.log(f"  {p.name}[左慈] 化身為 {n}")
         elif p.agent.choose_skill(g, p, "左慈-全部翻面"):
