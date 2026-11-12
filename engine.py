@@ -225,7 +225,9 @@ class Game:
         self.wei_chars: dict = {}       # 偽裝用的武將實例 (一次的技能一場只能用一次)
         self.cur_sha_target = None
         self.lord = self.players[ls]
-        self.dir = 1                    # 輪次方向: +1 往左 (座位號遞增) / -1 往右;主公第一回合結束後由主公決定
+        # 第一個出牌的人: 一般從主公開始; 主公不公開時從隨機一位玩家開始 (不然誰先出牌誰就是主公)
+        self.first = self.players[self.rng.randrange(n)] if self.hidden_lord else self.lord
+        self.dir = 1                    # 輪次方向: +1 往左 (座位號遞增) / -1 往右;第一個出牌的人第一回合結束後決定
         self.lord.maxhp += lord_bonus   # 主公多 lord_bonus 點體力上限
         self.lord.hp += lord_bonus
         self.deck = build_deck(self.rng)
@@ -2189,20 +2191,28 @@ class Game:
             self.ordinary = False
             for p in self.players:
                 p._char.on_game_start(self, p)
-            n, ls = len(self.players), self.lord.idx
-            for self.round in (range(1, self.max_rounds + 1) if self.max_rounds else itertools.count(1)):   # 每輪從主公開始 (預設上限 10000 輪)
+            n, ls = len(self.players), self.first.idx
+            if self.hidden_lord:   # 主公不公開: 第一個出牌的人在自己第一個回合「開始前」就決定方向 (他可能出南蠻 / 萬箭這種全體結算的牌,結算順序要看方向)
+                fp = self.first
+                ask = len(self.alive_players()) > 2 and not self.scn
+                i = fp.agent.choose_option(self, fp, "輪次方向", ["往左 (座位號遞增)", "往右 (座位號遞減)"]) if ask else 0
+                self.dir = 1 if i == 0 else -1
+                if ask:
+                    self.log(f"  {fp.name} 是第一個出牌的玩家,決定輪次方向: {'往左 (座位號遞增)' if self.dir == 1 else '往右 (座位號遞減)'}")
+            for self.round in (range(1, self.max_rounds + 1) if self.max_rounds else itertools.count(1)):   # 每輪從第一個出牌的人 (一般是主公) 開始 (預設上限 10000 輪)
                 k = 0
                 while k < n:
                     p = self.players[(ls + self.dir * k) % n]
                     if p.alive:
                         self.take_turn(p)
                         assert self.count_cards() == self.total_cards, "牌數不守恆"
-                    if self.round == 1 and k == 0:   # 主公第一回合結束後,由主公決定往左還是往右輪
-                        ask = self.lord.alive and len(self.alive_players()) > 2 and not self.scn   # 第一回合結束只剩兩個人 (或更少): 往哪邊輪都一樣,不用問
-                        i = self.lord.agent.choose_option(self, self.lord, "輪次方向", ["往左 (座位號遞增)", "往右 (座位號遞減)"]) if ask else 0
+                    if self.round == 1 and k == 0 and not self.hidden_lord:   # 第一個出牌的人 (一般是主公) 第一回合結束後,決定往左還是往右輪 (主公不公開: 已在開局決定)
+                        fp = self.first
+                        ask = fp.alive and len(self.alive_players()) > 2 and not self.scn   # 第一回合結束只剩兩個人 (或更少): 往哪邊輪都一樣,不用問
+                        i = fp.agent.choose_option(self, fp, "輪次方向", ["往左 (座位號遞增)", "往右 (座位號遞減)"]) if ask else 0
                         self.dir = 1 if i == 0 else -1
                         if ask:
-                            self.log(f"  {self.lord.name} 決定輪次方向: {'往左 (座位號遞增)' if self.dir == 1 else '往右 (座位號遞減)'}")
+                            self.log(f"  {fp.name} 決定輪次方向: {'往左 (座位號遞增)' if self.dir == 1 else '往右 (座位號遞減)'}")
                     k += 1
             self.winner = "平手(超過回合上限)"
         except GameOver:
