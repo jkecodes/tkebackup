@@ -1348,18 +1348,16 @@ class Manager:
                 ai_present = any(i not in self.claims for i in range(len(g.players)))
                 lv = [self._level(self.cfg, i) for i in range(len(g.players)) if i not in self.claims]
                 wx = Profiles.WIN_XP.get(round(sum(lv) / len(lv)), 45) if ai_present else None   # 電腦難度取平均
-                wrp = Profiles.WIN_RP.get(round(sum(lv) / len(lv)), 25) if ai_present else 25
+                # 基礎分: 其他每個座位都算進去 (電腦照難度、真人依對方段位換算成難度),所以桌上真人越多越強,贏輸的分都越高
+                lva = list(lv) + [Profiles.RANK_DIFF.get(Profiles.rank(r)[0], 3) for t, r in rps.items() if t != tok]
+                lva_avg = round(sum(lva) / len(lva)) if lva else 3
+                wrp = Profiles.WIN_RP.get(lva_avg, 25)
                 ranked = bool(self.cfg.get("ranked"))
                 multi = False
                 if ranked and self.ips.get(tok) and sum(1 for s2, t2 in self.claims.items() if s2 in self.humans and self.ips.get(t2) == self.ips.get(tok)) > 1:
                     multi = True   # 同一個 IP 有兩個以上帳號在同一場段位局: 贏了不加分、輸了照扣 (防止開小帳互相送分)
                     self._event(f"⚠ {self.nicks.get(tok) or '未命名'}: 同一個網路有多個帳號在這場段位局,這場贏了不加分、輸了照扣", "warn")
-                lrp = Profiles.LOSS_RP.get(round(sum(lv) / len(lv)), 25) if ai_present else 25   # 輸的扣分 = 同難度贏的加分
-                others = [v for t, v in rps.items() if t != tok]
-                if others:   # 有其他真人: 對手平均段位比我高 → 贏得多、輸扣得少;比我低 → 贏得少、輸扣得多 (±50%)
-                    diff = sum(others) / len(others) - rps.get(tok, 0)
-                    wrp = round(wrp * max(0.5, min(1.5, 1 + diff / Profiles.SPREAD)))
-                    lrp = round(lrp * max(0.5, min(1.5, 1 - diff / Profiles.SPREAD)))
+                lrp = Profiles.LOSS_RP.get(lva_avg, 25)   # 輸的扣分 = 同難度贏的加分
                 if len(g.players) <= 3:   # 2~3 人 (沒有隊友,只能靠自己): 贏的經驗加倍
                     wx = 2 * (wx if wx is not None else Profiles.XP_WIN)
                 draw = str(w).startswith("平手")
